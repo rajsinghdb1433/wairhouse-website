@@ -96,6 +96,7 @@ function jar() { const c = {}; return { csrf: '', async req(m, p, body, { raw, h
       u = await owner.req('PUT', `/api/owner/listings/${tid}`, { ...base, suburb: 'Fitzroy', state: 'VIC', postcode: '3065', lat: -33.80, lng: 150.70 }); ok(near(u.j.listing, -37.7975, 144.9805, 0.05), 'moving the suburb without moving the pin takes the pin to the new suburb');
       u = await owner.req('PUT', `/api/owner/listings/${tid}`, { ...base, suburb: 'Fitzroy', state: 'VIC', postcode: '3065', lat: -37.9, lng: 145.0 }); ok(u.j.listing.lat === -37.9, 'a pin moved by the host is kept even in a new suburb');
       u = await owner.req('PUT', `/api/owner/listings/${tid}`, { ...base, suburb: 'Nowhere', state: 'NSW', postcode: '9999', lat: -37.9, lng: 145.0 }); ok(u.j.listing.lat === null, 'a place that cannot be found drops the old pin rather than leave it in the wrong suburb');
+      u = await owner.req('PUT', `/api/owner/listings/${tid}`, { ...base, suburb: 'Caddens', state: 'NSW', postcode: '2747', lat: 10, lng: 10 }); ok(near(u.j.listing, -33.7745, 150.737, 0.01), 'a pin outside Australia (a stray click or 0,0) is ignored and the suburb is used instead');
       let loc = await owner.req('GET', '/api/owner/locate?suburb=Mt%20Druitt&state=NSW&postcode=2770'); ok(loc.j.found && near(loc.j, -33.77, 150.82, 0.05), 'the form can ask where a suburb is (Mt Druitt = Mount Druitt)');
       loc = await owner.req('GET', '/api/owner/locate?suburb=Nowhere&state=NSW&postcode=9999'); ok(loc.j.found === false, 'an unknown place is reported as not found (a postcode from another state is not used)');
       loc = await anon.req('GET', '/api/owner/locate?suburb=Caddens&state=NSW&postcode=2747'); ok(loc.s === 401, 'the locate helper needs a sign-in');
@@ -107,7 +108,12 @@ function jar() { const c = {}; return { csrf: '', async req(m, p, body, { raw, h
       const placed = geo.backfill(fq); const after = dbx.prepare('SELECT lat, lng FROM listings WHERE id = ?').get(lid);
       ok(placed >= 1 && near(after, -33.94, 150.92, 0.1), 'listings with no position are placed on the map at start-up');
       geo.backfill(fq); const again = dbx.prepare('SELECT lat, lng FROM listings WHERE id = ?').get(lid); ok(again.lat === after.lat && again.lng === after.lng, 'start-up placement never moves a pin that is already set');
+      dbx.prepare('UPDATE listings SET lat = 0, lng = 0 WHERE id = ?').run(lid); // a pin in the sea off Africa: certainly wrong for an Australian space
+      const fixed = geo.backfill(fq); const repaired = dbx.prepare('SELECT lat, lng FROM listings WHERE id = ?').get(lid);
+      ok(fixed >= 1 && near(repaired, -33.94, 150.92, 0.1), 'a pin outside Australia is repaired from the suburb at start-up');
       dbx.close();
+      ok(!geo.inAustralia(0, 0) && !geo.inAustralia(NaN, 150) && !geo.inAustralia(null, null) && geo.inAustralia(-33.7, 150.7) && geo.inAustralia(-42.9, 147.3), 'Australia box: 0,0 and blanks are out, Sydney and Hobart are in');
+      ok(geo.stats().places > 17000 && geo.stats().postcodes > 2500, 'the built-in locality list is loaded');
       ok(geo.locate({ suburb: 'Caddens', state: 'NSW', postcode: '2747' }).how === 'suburb' && geo.locate({ suburb: 'Zzyzx Heights', state: 'NSW', postcode: '2747' }).how === 'postcode' && geo.locate({ suburb: 'x', state: 'NSW', postcode: '9999' }) === null, 'lookup: exact suburb, else middle of the postcode, else nothing');
       const wrongPc = geo.locate({ suburb: 'CADDENS', state: 'NSW', postcode: '2750' }); ok(wrongPc.how === 'suburb' && near(wrongPc, -33.7745, 150.737, 0.01), 'a suburb typed with the wrong postcode is still placed by its name when the name means one place in that state');
       ok(geo.locate({ suburb: 'Broadway', state: 'NSW', postcode: '9999' }) === null, 'but an ambiguous name (Broadway NSW is two places) with an unknown postcode is not guessed');

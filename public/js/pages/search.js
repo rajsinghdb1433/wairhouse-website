@@ -28,8 +28,8 @@ export default async function search({ main, query, onLeave, navigate }) {
     $('#res').innerHTML = data.listings.length ? data.listings.map((l) => listingCard(l).s).join('') : `<div class="empty" style="grid-column:1/-1"><h3>Nothing here yet</h3><p>Try a different place or clear a filter. Owners are joining every week.</p><a class="btn btn-p" href="/host" data-link style="margin-top:18px">Own space? List it free</a></div>`;
     document.querySelectorAll('#res .rv').forEach((e) => e.classList.add('in')); tilt($('#res'));
     if (map && L) {
-      markers.forEach((m) => m.remove()); markers.clear(); const pts = [];
-      data.listings.forEach((l) => { if (l.lat == null) return; const m = L.marker([l.lat, l.lng], { icon: L.divIcon({ className: '', html: `<div class="pin" data-pin="${l.id}">${moneyP(l.price_cents)}</div>`, iconSize: [0, 0] }) }).addTo(map); m.on('click', () => { const el = $(`.lc[data-id="${l.id}"]`); el?.scrollIntoView({ behavior: 'smooth', block: 'center' }); el?.animate([{ outline: '3px solid #ff6b2c' }, { outline: '3px solid transparent' }], { duration: 1600 }); }); markers.set(l.id, m); pts.push([l.lat, l.lng]); });
+      markers.forEach((m) => m.remove()); markers.clear(); const pts = []; const inAus = (l) => l.lat < -9 && l.lat > -44.5 && l.lng > 112 && l.lng < 154.5; // one stray pin must never blank the map for everyone
+      data.listings.forEach((l) => { if (!inAus(l)) return; try { const m = L.marker([l.lat, l.lng], { icon: L.divIcon({ className: '', html: `<div class="pin" data-pin="${l.id}">${moneyP(l.price_cents)}</div>`, iconSize: [0, 0] }) }).addTo(map); m.on('click', () => { const el = $(`.lc[data-id="${l.id}"]`); el?.scrollIntoView({ behavior: 'smooth', block: 'center' }); el?.animate([{ outline: '3px solid #ff6b2c' }, { outline: '3px solid transparent' }], { duration: 1600 }); }); markers.set(l.id, m); pts.push([l.lat, l.lng]); } catch (_) { /* skip this pin, keep the rest */ } });
       if (pts.length) map.fitBounds(pts, { padding: [50, 50], maxZoom: 11 }); setTimeout(() => map.invalidateSize(), 100);
     }
   }

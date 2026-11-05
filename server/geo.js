@@ -58,14 +58,22 @@ function fuzz(id, lat, lng) {
   return [Math.round((lat + dLat) * 1e5) / 1e5, Math.round((lng + dLng) * 1e5) / 1e5];
 }
 
-// Gives every listing without a position one. Never overwrites a pin a host placed. Returns how many were placed.
+// Australia (mainland and Tasmania). A pin outside this box is a mistake for an Australian marketplace (a stray click, a 0,0).
+const inAustralia = (lat, lng) => Number.isFinite(lat) && Number.isFinite(lng) && lat < -9 && lat > -44.5 && lng > 112 && lng < 154.5;
+// SQL for "this listing needs a pin": none yet, or one that is not in Australia. A pin a host placed inside Australia is never touched.
+const NEEDS_PIN = 'lat IS NULL OR lng IS NULL OR NOT (lat BETWEEN -44.5 AND -9 AND lng BETWEEN 112 AND 154.5)';
+
+// Gives every listing that needs a pin one, from its suburb and postcode. Returns how many were placed.
 function backfill(q) {
   let placed = 0;
-  for (const l of q.all('SELECT id, suburb, state, postcode FROM listings WHERE lat IS NULL OR lng IS NULL')) {
+  for (const l of q.all(`SELECT id, suburb, state, postcode FROM listings WHERE ${NEEDS_PIN}`)) {
     const g = locate(l); if (!g) continue;
-    q.run('UPDATE listings SET lat = ?, lng = ? WHERE id = ? AND (lat IS NULL OR lng IS NULL)', g.lat, g.lng, l.id); placed++;
+    q.run(`UPDATE listings SET lat = ?, lng = ? WHERE id = ? AND (${NEEDS_PIN})`, g.lat, g.lng, l.id); placed++;
   }
   return placed;
 }
 
-module.exports = { locate, fuzz, backfill };
+// How much of the locality list is loaded (also makes a missing or unreadable file show up in the log at start-up).
+function stats() { const t = load(); return { postcodes: Object.keys(t).length, places: Object.values(t).reduce((s, rows) => s + rows.length, 0) }; }
+
+module.exports = { locate, fuzz, backfill, stats, inAustralia, NEEDS_PIN };

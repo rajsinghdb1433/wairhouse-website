@@ -36,8 +36,8 @@ function parseListing(b, existing) {
   // Map position. A pin the host placed always wins. Otherwise we place one from the suburb and postcode (suburb level on purpose: the
   // street address stays private). If the suburb, state or postcode was changed and the pin was left where it was, move it with them.
   const lat = Number(b.lat), lng = Number(b.lng);
-  const given = Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180 && lat !== 0 && lng !== 0;
-  const has = e.lat != null && e.lng != null;
+  const given = geo.inAustralia(lat, lng); // a click or value outside Australia is a mistake: ignore it and place the pin from the suburb instead
+  const has = geo.inAustralia(e.lat, e.lng);
   const moved = given && (!has || Math.abs(lat - e.lat) > 1e-6 || Math.abs(lng - e.lng) > 1e-6);
   const same = (a, c) => String(a || '').trim().toLowerCase() === String(c || '').trim().toLowerCase();
   const placeChanged = !!existing && !(same(e.suburb, suburb) && same(e.state, state) && same(e.postcode, postcode));

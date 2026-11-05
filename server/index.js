@@ -15,9 +15,10 @@ seed();
 const mediaLib = require('./media'); mediaLib.seedLibrary();
 // Put any listing that has no map position yet on the map (suburb level, from its suburb and postcode). Existing pins are never touched.
 try {
-  const missing = q.get('SELECT COUNT(*) c FROM listings WHERE lat IS NULL OR lng IS NULL').c; const total = q.get('SELECT COUNT(*) c FROM listings').c;
-  const placed = require('./geo').backfill(q);
-  console.log(`[map] ${total} listing${total === 1 ? '' : 's'}: ${total - missing} already on the map, ${placed} placed from suburb and postcode${missing - placed ? `, ${missing - placed} could not be placed` : ''}`);
+  const geo = require('./geo'); const list = geo.stats();
+  const missing = q.get(`SELECT COUNT(*) c FROM listings WHERE ${geo.NEEDS_PIN}`).c; const total = q.get('SELECT COUNT(*) c FROM listings').c;
+  const placed = geo.backfill(q);
+  console.log(`[map] locality list: ${list.places} places in ${list.postcodes} postcodes. ${total} listing${total === 1 ? '' : 's'}: ${total - missing} on the map, ${placed} placed from suburb and postcode${missing - placed ? `, ${missing - placed} could not be placed` : ''}`);
 } catch (e) { console.warn('[map] could not place listings:', e.message); }
 
 const app = express();
