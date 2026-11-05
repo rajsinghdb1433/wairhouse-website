@@ -6,23 +6,28 @@ const { clean, isEmail, wrap, hmac, safeEqual, int, ip } = require('../util');
 const captcha = require('../captcha');
 const mailer = require('../mailer');
 const config = require('../config');
+const geo = require('../geo');
 
 const r = express.Router();
 const PERIOD_DAYS = { day: 1, week: 7, month: 30 };
 
 // ---------- shared listing helpers ----------
-function shapeListing(l, { full = false } = {}) {
+// Visitors only ever get an approximate position (a stable 150-450 m offset) and never the street address. The owner and admin views pass
+// exact: true, which also includes the street address and the exact pin, so a host can see and edit what they entered.
+function shapeListing(l, { full = false, exact = false } = {}) {
   if (!l) return null;
+  const pin = l.lat == null || l.lng == null ? [null, null] : (exact ? [l.lat, l.lng] : geo.fuzz(l.id, l.lat, l.lng));
   const o = {
     id: l.id, slug: l.slug, title: l.title, summary: l.summary, type: l.type,
-    suburb: l.suburb, state: l.state, postcode: l.postcode, lat: l.lat, lng: l.lng,
+    suburb: l.suburb, state: l.state, postcode: l.postcode, lat: pin[0], lng: pin[1],
     unit: l.unit, price_cents: l.price_cents, period: l.period, capacity: l.capacity,
     total_sqm: l.total_sqm, height_m: l.height_m, min_days: l.min_days,
     features: JSON.parse(l.features || '[]'), images: JSON.parse(l.images || '[]'),
     instant_book: !!l.instant_book, insurance_included: !!l.insurance_included, featured: !!l.featured,
     rating_avg: l.rating_avg, rating_count: l.rating_count, is_demo: !!l.is_demo, status: l.status,
   };
-  if (full) Object.assign(o, { description: l.description, access_hours: l.access_hours, address_line: l.address_line, owner_id: l.owner_id, created_at: l.created_at, views: l.views });
+  if (full) Object.assign(o, { description: l.description, access_hours: l.access_hours, owner_id: l.owner_id, created_at: l.created_at, views: l.views });
+  if (exact) o.address_line = l.address_line;
   return o;
 }
 function ownerCommissionPct(ownerId) {

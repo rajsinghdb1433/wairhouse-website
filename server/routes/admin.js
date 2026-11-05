@@ -66,7 +66,7 @@ r.get('/listings', (req, res) => {
   if (req.query.q) { w.push('(l.title LIKE ? OR l.suburb LIKE ?)'); p.push(like(req.query.q), like(req.query.q)); }
   const { limit, offset } = page(req);
   const rows = q.all(`SELECT l.*, u.name owner_name, u.email owner_email FROM listings l JOIN users u ON u.id = l.owner_id WHERE ${w.join(' AND ')} ORDER BY (l.status='pending') DESC, l.id DESC LIMIT ? OFFSET ?`, ...p, limit, offset);
-  res.json({ listings: rows.map((l) => ({ ...shapeListing(l, { full: true }), owner_name: l.owner_name, owner_email: l.owner_email, rejection_reason: l.rejection_reason })) });
+  res.json({ listings: rows.map((l) => ({ ...shapeListing(l, { full: true, exact: true }), owner_name: l.owner_name, owner_email: l.owner_email, rejection_reason: l.rejection_reason })) });
 });
 r.post('/listings/:id/decision', (req, res) => {
   const l = q.get('SELECT * FROM listings WHERE id = ?', int(req.params.id)); if (!l) return res.status(404).json({ error: 'Not found.' });

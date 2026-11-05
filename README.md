@@ -37,9 +37,11 @@ Your details (name, phone, email, ABN, address) live in **Admin > Site settings*
 ```
 server/           Express app, routes (auth, public, account, owner, admin), mailer, captcha, seed, legal text
 public/           index.html, css, js (app, lib, scenes, pages), fonts, vendor (three.js, Leaflet), img, video
-scripts/          smoke-test.js (54 checks), render-media.js, build-assets.js
+scripts/          smoke-test.js and mail-test.js (run by npm test), render-media.js, build-assets.js, build-localities.js
 docs/             deployment, security, pricing
 ```
+
+Credits: map positions come from a built-in list of Australian localities, [Matthew Proctor's Australian Postcodes](https://www.matthewproctor.com/australian_postcodes) (as packaged in the `aus-postcode-suburbs` npm package, ISC). Regenerate it with `node scripts/build-localities.js path/to/aus_postcodes.json`.
 
 ## Legal notice
 

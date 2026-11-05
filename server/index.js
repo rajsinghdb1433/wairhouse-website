@@ -13,6 +13,8 @@ const { esc } = require('./util');
 
 seed();
 const mediaLib = require('./media'); mediaLib.seedLibrary();
+// Put any listing that has no map position yet on the map (suburb level, from its suburb and postcode). Existing pins are never touched.
+try { const placed = require('./geo').backfill(q); if (placed) console.log(`[map] placed ${placed} listing${placed > 1 ? 's' : ''} on the map from suburb and postcode`); } catch (e) { console.warn('[map] could not place listings:', e.message); }
 
 const app = express();
 app.disable('x-powered-by');

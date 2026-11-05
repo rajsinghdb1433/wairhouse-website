@@ -59,7 +59,7 @@ function jar() { const c = {}; return { csrf: '', async req(m, p, body, { raw, h
     db2.close();
 
     console.log('Marketplace flow');
-    const bodyL = { title: '<script>alert(1)</script> Test Bay', type: 'warehouse', unit: 'pallet', period: 'week', price: 5, capacity: 50, suburb: 'Moorebank', state: 'NSW', postcode: '2170', min_days: 7, features: ['CCTV 24/7'], description: 'A very clean and secure test warehouse bay with forklift access.', instant_book: false };
+    const bodyL = { title: '<script>alert(1)</script> Test Bay', type: 'warehouse', unit: 'pallet', period: 'week', price: 5, capacity: 50, suburb: 'Moorebank', state: 'NSW', postcode: '2170', address_line: '12 Secret Street', min_days: 7, features: ['CCTV 24/7'], description: 'A very clean and secure test warehouse bay with forklift access.', instant_book: false };
     r = await owner.req('POST', '/api/owner/listings', bodyL); ok(r.s === 400 && /permission/i.test(r.j.error), 'listing needs the "I have permission to rent this" confirmation');
     r = await owner.req('POST', '/api/owner/listings', { ...bodyL, confirm_rights: true }); ok(r.s === 200, 'owner creates listing'); const lid = r.j.listing.id;
     const cust2 = jar(); r = await cust2.req('POST', '/api/auth/register', { name: 'Hana Household', email: 'hana@example.com', password: 'a household passphrase', role: 'customer', accept_terms: true }); cust2.csrf = r.j.csrf;
@@ -74,6 +74,44 @@ function jar() { const c = {}; return { csrf: '', async req(m, p, body, { raw, h
     r = await anon.req('GET', '/api/listings?q=Test Bay'); ok(r.j.total === 0, 'pending listing is not public');
     r = await adm.req('POST', `/api/admin/listings/${lid}/decision`, { approve: true }); ok(r.s === 200, 'admin approves');
     r = await anon.req('GET', '/api/listings?q=Test Bay'); ok(r.j.total === 1, 'approved listing is public'); const slug = r.j.listings[0].slug;
+    {
+      console.log('Map position and privacy');
+      const metres = (a, b) => { const k = Math.PI / 180, dLat = (b.lat - a.lat) * 111320, dLng = (b.lng - a.lng) * 111320 * Math.cos(a.lat * k); return Math.sqrt(dLat * dLat + dLng * dLng); };
+      const near = (p, lat, lng, tol = 0.05) => p.lat != null && Math.abs(p.lat - lat) < tol && Math.abs(p.lng - lng) < tol;
+      const host = (await owner.req('GET', `/api/owner/listings/${lid}`)).j.listing;
+      ok(near(host, -33.94, 150.92, 0.1), 'a listing saved without a map pin is placed from its suburb and postcode (Moorebank 2170)');
+      ok(host.address_line === '12 Secret Street', 'the host still sees their own street address');
+      r = await anon.req('GET', '/api/listings/' + slug); const pub = r.j.listing;
+      ok(pub.lat != null && !('address_line' in pub) && !JSON.stringify(r.j).includes('Secret Street'), 'the public listing page never carries the street address');
+      const off = metres(host, pub); ok(off >= 120 && off <= 500, `visitors get an approximate pin, not the real one (${Math.round(off)} m away)`);
+      r = await anon.req('GET', '/api/listings?q=Test Bay'); ok(r.j.listings[0].lat === pub.lat && r.j.listings[0].lng === pub.lng && !JSON.stringify(r.j).includes('Secret Street'), 'search results use the same approximate pin and carry no street address');
+      r = await anon.req('GET', '/api/listings/' + slug); ok(r.j.listing.lat === pub.lat, 'the approximate pin is stable between visits (it cannot be averaged out)');
+      // a throwaway listing to try the placement rules without disturbing the booking flow below
+      const base = { ...bodyL, title: 'Map position test bay', suburb: 'Caddens', postcode: '2747', address_line: '5 Hidden Lane' };
+      const made = await owner.req('POST', '/api/owner/listings', { ...base, confirm_rights: true }); const tid = made.j.listing.id;
+      ok(near(made.j.listing, -33.7745, 150.737, 0.01), 'Caddens 2747 is placed in Caddens');
+      let u = await owner.req('PUT', `/api/owner/listings/${tid}`, { ...base, lat: -33.80, lng: 150.70 }); ok(u.j.listing.lat === -33.8 && u.j.listing.lng === 150.7, 'a pin the host places is kept exactly');
+      u = await owner.req('PUT', `/api/owner/listings/${tid}`, { ...base, lat: -33.80, lng: 150.70 }); ok(u.j.listing.lat === -33.8, 'saving again with nothing changed keeps the pin');
+      u = await owner.req('PUT', `/api/owner/listings/${tid}`, { ...base, suburb: 'caddens', lat: -33.80, lng: 150.70 }); ok(u.j.listing.lat === -33.8, 'a change of letter case in the suburb does not undo the host\'s pin');
+      u = await owner.req('PUT', `/api/owner/listings/${tid}`, { ...base, suburb: 'Fitzroy', state: 'VIC', postcode: '3065', lat: -33.80, lng: 150.70 }); ok(near(u.j.listing, -37.7975, 144.9805, 0.05), 'moving the suburb without moving the pin takes the pin to the new suburb');
+      u = await owner.req('PUT', `/api/owner/listings/${tid}`, { ...base, suburb: 'Fitzroy', state: 'VIC', postcode: '3065', lat: -37.9, lng: 145.0 }); ok(u.j.listing.lat === -37.9, 'a pin moved by the host is kept even in a new suburb');
+      u = await owner.req('PUT', `/api/owner/listings/${tid}`, { ...base, suburb: 'Nowhere', state: 'NSW', postcode: '9999', lat: -37.9, lng: 145.0 }); ok(u.j.listing.lat === null, 'a place that cannot be found drops the old pin rather than leave it in the wrong suburb');
+      let loc = await owner.req('GET', '/api/owner/locate?suburb=Mt%20Druitt&state=NSW&postcode=2770'); ok(loc.j.found && near(loc.j, -33.77, 150.82, 0.05), 'the form can ask where a suburb is (Mt Druitt = Mount Druitt)');
+      loc = await owner.req('GET', '/api/owner/locate?suburb=Nowhere&state=NSW&postcode=9999'); ok(loc.j.found === false, 'an unknown place is reported as not found (a postcode from another state is not used)');
+      loc = await anon.req('GET', '/api/owner/locate?suburb=Caddens&state=NSW&postcode=2747'); ok(loc.s === 401, 'the locate helper needs a sign-in');
+      await owner.req('DELETE', `/api/owner/listings/${tid}`);
+      // listings saved before pins were automatic (no position) are placed at start-up, and an existing pin is never moved
+      process.env.DATA_DIR = dir; process.env.UPLOAD_DIR = path.join(dir, 'up'); const geo = require('../server/geo');
+      const dbx = new DatabaseSync(env.DB_FILE); const fq = { all: (sql, ...a) => dbx.prepare(sql).all(...a), run: (sql, ...a) => dbx.prepare(sql).run(...a) };
+      dbx.prepare('UPDATE listings SET lat = NULL, lng = NULL WHERE id = ?').run(lid);
+      const placed = geo.backfill(fq); const after = dbx.prepare('SELECT lat, lng FROM listings WHERE id = ?').get(lid);
+      ok(placed >= 1 && near(after, -33.94, 150.92, 0.1), 'listings with no position are placed on the map at start-up');
+      geo.backfill(fq); const again = dbx.prepare('SELECT lat, lng FROM listings WHERE id = ?').get(lid); ok(again.lat === after.lat && again.lng === after.lng, 'start-up placement never moves a pin that is already set');
+      dbx.close();
+      ok(geo.locate({ suburb: 'Caddens', state: 'NSW', postcode: '2747' }).how === 'suburb' && geo.locate({ suburb: 'Zzyzx Heights', state: 'NSW', postcode: '2747' }).how === 'postcode' && geo.locate({ suburb: 'x', state: 'NSW', postcode: '9999' }) === null, 'lookup: exact suburb, else middle of the postcode, else nothing');
+      const wrongPc = geo.locate({ suburb: 'CADDENS', state: 'NSW', postcode: '2750' }); ok(wrongPc.how === 'suburb' && near(wrongPc, -33.7745, 150.737, 0.01), 'a suburb typed with the wrong postcode is still placed by its name when the name means one place in that state');
+      ok(geo.locate({ suburb: 'Broadway', state: 'NSW', postcode: '9999' }) === null, 'but an ambiguous name (Broadway NSW is two places) with an unknown postcode is not guessed');
+    }
     const start = new Date(Date.now() + 5 * 864e5).toISOString().slice(0, 10), end = new Date(Date.now() + 40 * 864e5).toISOString().slice(0, 10);
     r = await anon.req('POST', '/api/quote', { listing_id: lid, start_date: start, end_date: end, quantity: 4 }); ok(r.s === 200 && r.j.quote.total_cents > r.j.quote.subtotal_cents, `quote adds service fee ($${(r.j.quote?.total_cents / 100).toFixed(2)})`);
     r = await anon.req('POST', '/api/me/bookings', { listing_id: lid }); ok(r.s === 401, 'booking requires sign-in');
