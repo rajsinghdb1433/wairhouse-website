@@ -2,7 +2,7 @@
 // Map positions for listings, kept deliberately approximate.
 //
 //  - locate(): finds a suburb-level position from the suburb, state and postcode a host typed, using a built-in list of Australian
-//    localities (server/data/au-localities.json, see scripts/build-localities.js). Nothing is sent to any outside service, and the
+//    localities (server/places/au-localities.json, see scripts/build-localities.js). Nothing is sent to any outside service, and the
 //    street address is never used, because it stays private until a booking is confirmed.
 //  - fuzz():   what visitors see. A stable offset of roughly 150 to 450 metres, different for every listing and impossible to undo
 //    without the server secret, so a host who drops the pin on their house is not pinpointed on the public map.
@@ -15,7 +15,8 @@ const { hmac } = require('./util');
 let table = null, byName = null; // postcode -> [[NAME, lat, lng, STATE], ...]   and   "NAME|STATE" -> [[lat, lng], ...]
 function load() {
   if (table) return table;
-  try { table = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'au-localities.json'), 'utf8')); } catch (_) { table = {}; }
+  try { table = JSON.parse(fs.readFileSync(path.join(__dirname, 'places', 'au-localities.json'), 'utf8')); }
+  catch (e) { console.warn(`[map] the locality list could not be read (${e.code || e.message}), so pins cannot be placed automatically`); table = {}; }
   byName = new Map();
   for (const rows of Object.values(table)) for (const [n, lat, lng, st] of rows) { const k = `${n}|${st}`; byName.has(k) ? byName.get(k).push([lat, lng]) : byName.set(k, [[lat, lng]]); }
   return table;

@@ -1,5 +1,5 @@
 'use strict';
-// Builds server/data/au-localities.json, the built-in list used to put a listing on the map from its suburb and postcode.
+// Builds server/places/au-localities.json, the built-in list used to put a listing on the map from its suburb and postcode.
 //
 //   node scripts/build-localities.js path/to/aus_postcodes.json
 //
@@ -23,7 +23,7 @@ for (const r of rows) {
   list.push([name, Math.round(lat * 1e4) / 1e4, Math.round(lng * 1e4) / 1e4, r.state]); kept++;
 }
 const sorted = Object.fromEntries(Object.keys(out).sort().map((k) => [k, out[k]]));
-const dest = path.join(__dirname, '..', 'server', 'data', 'au-localities.json');
+const dest = path.join(__dirname, '..', 'server', 'places', 'au-localities.json');
 fs.mkdirSync(path.dirname(dest), { recursive: true });
 fs.writeFileSync(dest, JSON.stringify(sorted));
 console.log(`Wrote ${kept} localities in ${Object.keys(sorted).length} postcodes to ${path.relative(process.cwd(), dest)} (${(fs.statSync(dest).size / 1024).toFixed(0)} KB)`);
