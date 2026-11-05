@@ -27,6 +27,10 @@ const cap = (c) => ({ captcha_token: c.captcha_token, captcha_answer: c.captcha_
   ok(/Could not reach/.test(friendlyError(E({ code: 'ETIMEDOUT' }, 'Connection timeout'))), 'a timeout is explained');
   ok(/Could not reach/.test(friendlyError(E({ code: 'ECONNREFUSED' }, 'connect ECONNREFUSED 10.0.0.1:465'))), 'a refused connection is explained');
   ok(/username or password/.test(friendlyError(E({ code: 'EAUTH', responseCode: 535 }, 'Invalid login: 535 5.7.8 Authentication failed'))), 'a wrong password is explained');
+  const gmail535 = E({ code: 'EAUTH', responseCode: 535 }, 'Invalid login: 535-5.7.8 Username and Password not accepted. For more information, go to\n535 5.7.8  https://support.google.com/mail/?p=BadCredentials d9443c01a7336-2f0a - gsmtp');
+  ok(/app password/.test(friendlyError(gmail535)) && /apppasswords/.test(friendlyError(gmail535)) && !/Hotmail/.test(friendlyError(gmail535)), 'Gmail refusing a normal password says it needs a 16-letter app password and where to make one');
+  ok(/app password/.test(friendlyError(E({ code: 'EAUTH', responseCode: 534 }, '534-5.7.9 Application-specific password required. For more information, go to https://support.google.com/mail/?p=InvalidSecondFactor - gsmtp'))), 'Gmail asking for an application-specific password gets the same help');
+  ok(accountError(gmail535), 'a Gmail password refusal counts as an account problem');
   ok(/no longer allows password/.test(friendlyError(E({ code: 'EAUTH', responseCode: 535 }, '535 5.7.139 Authentication unsuccessful, basic authentication is disabled'))), 'Microsoft turning off password sign-in is explained, with the way out');
   ok(friendlyError(E({ responseCode: 550 }, '550 5.1.1 Recipient address rejected: User unknown')).includes('550 5.1.1'), 'a refused recipient keeps the server wording so the admin can see why');
   ok(accountError(E({ code: 'EAUTH' })) && accountError(E({}, 'getaddrinfo ENOTFOUND x.y')) && accountError(E({ code: 'ETIMEDOUT' })), 'login, DNS and timeout problems count as account problems');
