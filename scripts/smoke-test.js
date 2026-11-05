@@ -27,6 +27,18 @@ function jar() { const c = {}; return { csrf: '', async req(m, p, body, { raw, h
     r = await anon.req('GET', '/api/pages/terms'); ok(r.j.page.body.includes('0470368696') && !r.j.page.body.includes('{{'), 'legal pages fill placeholders');
     r = await anon.req('GET', '/api/auth/captcha'); ok(r.j.mode === 'builtin' && r.j.svg.includes('<svg') && r.j.token, 'captcha challenge served');
     r = await anon.req('GET', '/nope', null, { raw: true }); ok(r.s === 200 && (await r.r.text()).includes('<div id="app">'), 'SPA fallback serves app shell');
+    {
+      // Code is served from a build-stamped address so a new deploy reaches visitors at once (not a copy cached for days).
+      const rawGet = (p) => new Promise((resolve, reject) => require('http').get({ host: '127.0.0.1', port: PORT, path: p }, (res) => { let b = ''; res.on('data', (d) => b += d); res.on('end', () => resolve({ s: res.statusCode, b, h: res.headers })); }).on('error', reject));
+      const shell = (await rawGet('/')).b; const js = shell.match(/\/v\/([a-z0-9]+)\/js\/app\.js/); const css = shell.match(/\/v\/([a-z0-9]+)\/css\/app\.css/);
+      ok(!!js && !!css && js[1] === css[1] && !shell.includes('__BUILD__'), 'the page loads its code from a build-stamped address');
+      let a = await rawGet(`/v/${js[1]}/js/lib.js`); ok(a.s === 200 && /javascript/.test(a.h['content-type']) && a.b.includes('captchaHtml'), 'the stamped address serves the real file');
+      a = await rawGet(`/v/${js[1]}/js/pages/auth.js`); ok(a.s === 200, 'sub-modules load through the same stamp (all imports are relative)');
+      a = await rawGet(`/v/${js[1]}/css/app.css`); ok(a.s === 200 && /text\/css/.test(a.h['content-type']), 'the stylesheet loads through the stamp');
+      a = await rawGet('/v/0123456789/js/lib.js'); ok(a.s === 200 && !/immutable/.test(a.h['cache-control'] || ''), 'a page opened just before a deploy still works, and its copy is not kept for long');
+      for (const bad of [`/v/${js[1]}/js/../../server/index.js`, `/v/${js[1]}/js/%2e%2e/%2e%2e/server/index.js`, `/v/${js[1]}/js/..%5c..%5cserver/index.js`, `/v/${js[1]}/uploads/x`, `/v/${js[1]}/server/index.js`]) { a = await rawGet(bad); ok((a.s !== 200 || a.b.includes('<div id="app">')) && !a.b.includes('require(') && !a.b.includes("'use strict'"), `stamped address never returns server files (${bad.replace(js[1], 'BUILD').slice(0, 52)})`); }
+      a = await rawGet('/js/lib.js'); ok(a.s === 200 && /no-cache/.test(a.h['cache-control'] || ''), 'the plain address is always re-checked, never trusted from cache');
+    }
 
     console.log('Auth + security');
     const adm = jar(); r = await adm.req('POST', '/api/auth/login', { email: 'raj_softdev@hotmail.com', password: 'wrong-password' }); ok(r.s === 401, 'wrong password rejected');

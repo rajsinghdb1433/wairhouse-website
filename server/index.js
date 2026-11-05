@@ -92,7 +92,30 @@ app.use('/api', api);
 // ---------- static ----------
 const PUB = path.join(config.ROOT, 'public');
 app.use('/uploads', express.static(config.UPLOAD_DIR, { maxAge: '30d', immutable: true, index: false, dotfiles: 'deny', setHeaders: (res) => { res.set('X-Content-Type-Options', 'nosniff'); res.set('Content-Security-Policy', "default-src 'none'; img-src 'self'; media-src 'self'; sandbox"); } }));
-app.use(express.static(PUB, { maxAge: config.isProd ? '7d' : 0, index: false, dotfiles: 'deny', setHeaders: (res, p) => { if (/\.(html)$/.test(p)) res.set('Cache-Control', 'no-cache'); } }));
+
+// Our own code is served from a build-stamped address: /v/<build>/js/app.js and /v/<build>/css/app.css. Every import inside the app is
+// relative, so the whole module graph inherits the stamp. A new deploy therefore means new addresses: visitors get the new code at once
+// (not a copy cached for days), and repeat visits within one build stay fast because those files are cached for a year.
+// The stamp is a hash of the code itself, so it only changes when the code does.
+const BUILD = (() => {
+  const h = require('crypto').createHash('sha256');
+  const walk = (dir) => { for (const f of fs.readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) { const p = path.join(dir, f.name); if (f.isDirectory()) walk(p); else { h.update(path.relative(PUB, p)); h.update(fs.readFileSync(p)); } } };
+  try { walk(path.join(PUB, 'js')); walk(path.join(PUB, 'css')); } catch (_) { h.update(String(Date.now())); }
+  return h.digest('hex').slice(0, 10);
+})();
+const codeLong = express.static(PUB, { maxAge: '365d', immutable: true, index: false, dotfiles: 'deny' });
+const codeFresh = express.static(PUB, { maxAge: 0, index: false, dotfiles: 'deny' });
+app.use('/v', (req, res, next) => {
+  const m = /^\/([a-z0-9]{6,32})(\/(?:js|css)\/[^?]*)/i.exec(req.url);
+  if (!m || /\.\.|%2e|%5c|\\/i.test(m[2])) return next();
+  req.url = m[2]; // serve from /js/... or /css/...
+  // A page opened just before a deploy may still ask for the previous build: it gets the current file, but is told not to keep it.
+  return (m[1] === BUILD && config.isProd ? codeLong : codeFresh)(req, res, next);
+});
+app.use(express.static(PUB, { maxAge: config.isProd ? '7d' : 0, index: false, dotfiles: 'deny', setHeaders: (res, p) => {
+  // Pages and our own code are always re-checked (a cheap 304 when unchanged). Vendored libraries, fonts, images and video may be cached.
+  if (/\.(html|js|css)$/.test(p) && !/[\\/]vendor[\\/]/.test(p)) res.set('Cache-Control', 'no-cache');
+} }));
 
 app.get('/robots.txt', (_req, res) => res.type('text/plain').send(`User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /owner\nDisallow: /account\nDisallow: /api/\nSitemap: ${config.siteUrl}/sitemap.xml\n`));
 app.get('/sitemap.xml', (_req, res) => {
@@ -117,6 +140,7 @@ app.get(/^\/(?!api\/|uploads\/).*/, (req, res) => {
   else if (req.path === '/host') title = `Earn from your spare warehouse space | ${s.brand_name}`;
   const noindex = /^\/(admin|owner|account|login|register|reset|verify|forgot)/.test(req.path);
   const html = readShell()
+    .replace(/__BUILD__/g, BUILD)
     .replace('<!--SEO-->', `<title>${esc(title)}</title><meta name="description" content="${esc(desc)}"><link rel="canonical" href="${esc(config.siteUrl + req.path)}"><meta property="og:type" content="website"><meta property="og:site_name" content="${esc(s.brand_name)}"><meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(desc)}"><meta property="og:image" content="${esc(image)}"><meta property="og:url" content="${esc(config.siteUrl + req.path)}"><meta name="twitter:card" content="summary_large_image">${noindex ? '<meta name="robots" content="noindex,nofollow">' : ''}`)
     .replace('<!--ACCENT-->', `<style>:root{--accent:${/^#[0-9a-f]{6}$/i.test(s.accent_color) ? s.accent_color : '#ff6b2c'}}</style>`);
   res.set('Cache-Control', 'no-cache').type('html').send(html);

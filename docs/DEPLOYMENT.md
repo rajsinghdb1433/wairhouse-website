@@ -64,6 +64,8 @@ npm test      # end-to-end checks (site, security, human check, email) on a thro
 git push      # Hostinger redeploys automatically from GitHub
 ```
 
+Visitors get new code straight after a deploy. The page loads its JavaScript and CSS from a build-stamped address (`/v/<stamp>/js/app.js`, where the stamp is a hash of the code), so a browser never keeps running an old copy, and repeat visits stay fast because each build's files are cached for a year. Nobody needs to hard-refresh. (Pages, fonts, images and video keep their normal short caching.)
+
 ## Regenerating photos and the hero video
 
 `node scripts/render-media.js` re-renders every listing photo and the fly-through video from the 3D scenes (needs Chromium via Playwright and ffmpeg). Real owners upload their own photos; these defaults are placeholders for sample listings.
