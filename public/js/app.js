@@ -1,4 +1,5 @@
 import { html, raw, esc, $, $$, on, state, api, icon, logoSvg, toast, reveal, splitWords, tilt, magnetic, toggleWish, reduceMotion } from './lib.js';
+import { mountMenu, refresh as refreshMenu } from './menu.js';
 
 const routes = []; // [regex, loader, opts]
 const R = (re, loader, opts = {}) => routes.push([re, loader, opts]);
@@ -39,7 +40,6 @@ function headerHtml() {
             ${u.role === 'admin' ? html`<a href="/admin" data-link>Admin panel</a>` : ''}${u.role !== 'customer' ? html`<a href="/owner" data-link>Owner portal</a>` : ''}
             <a href="/account/bookings" data-link>My bookings</a><a href="/account/wishlist" data-link>Wishlist</a><a href="/account/messages" data-link>Messages</a><a href="/account/profile" data-link>Profile and security</a><hr><button data-logout>Sign out</button></div></div>`
         : html`<a class="btn btn-g btn-sm" href="/login" data-link>Sign in</a><a class="btn btn-p btn-sm" href="/register" data-link>Get started</a>`}
-      <button class="burger" aria-label="Menu" aria-expanded="false" id="burger"><i></i></button>
     </div></div></header>`;
 }
 function footerHtml() {
@@ -72,7 +72,7 @@ async function render() {
   app.insertAdjacentHTML('beforeend', headerHtml().s);
   const main = document.createElement('main'); main.id = 'main'; main.tabIndex = -1; app.appendChild(main); ctx.main = main;
   if (layout !== 'portal' && !authLayout) app.insertAdjacentHTML('beforeend', footerHtml().s);
-  setActiveHeader(layout); wireHeader();
+  setActiveHeader(layout); wireHeader(); refreshMenu();
   document.body.dataset.layout = layout;
   try {
     if (!hit) { const info = await import('./pages/info.js'); await info.notFound({ main, ...ctx, path, query }); }
@@ -119,6 +119,6 @@ function cookieBanner() {
     const acc = site.settings.accent_color; if (/^#[0-9a-f]{6}$/i.test(acc)) document.documentElement.style.setProperty('--accent', acc);
   } catch (e) { app.innerHTML = `<main style="display:grid;place-items:center;min-height:100vh;text-align:center;padding:24px"><div><h1 class="h-lg">We will be right back.</h1><p class="lede" style="margin:18px auto">${esc(e.message)}</p></div></main>`; return; }
   state.refreshUser = async () => { const me = await api('/auth/me'); state.user = me.user; state.csrf = me.csrf || state.csrf; };
-  await render(); cookieBanner();
+  mountMenu(); await render(); cookieBanner();
 })();
 export { state };
