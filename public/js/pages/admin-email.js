@@ -1,5 +1,5 @@
 // Admin > Email: connect the mailbox the site sends from, send a test, and see everything sent or waiting.
-import { html, raw, esc, $, $$, api, date, toast, confirmBox, formData, submitForm, setTitle } from '../lib.js';
+import { html, $, api, date, toast, confirmBox, formData, submitForm, setTitle } from '../lib.js';
 import { head, badge, empty } from './portal.js';
 import { previewMail } from './admin.js';
 
@@ -7,6 +7,14 @@ export default async function email(pc) {
   setTitle('Email');
   const [{ account, presets, unsent }, { emails }] = await Promise.all([api('/admin/email-settings'), api('/admin/outbox')]);
   const own = account.source === 'admin';
+  // 'ok' only after a connection test or a real send succeeded. A saved but failing mailbox is never shown as connected.
+  const state = !account.configured ? 'off' : account.verified === false ? 'bad' : account.verified === true ? 'ok' : 'untested';
+  const lead = {
+    ok: html`<span class="badge ok">connected</span> <b>Connected.</b>`,
+    bad: html`<span class="badge bad">needs attention</span> <b>The last connection test failed.</b> <span style="color:var(--bad)">${account.last_error}</span> Press <b>Change account</b> to fix it.`,
+    untested: html`<span class="badge warn">not tested yet</span> <b>Mailbox saved.</b> Press <b>Send test email</b> to check that it works.`,
+  }[state];
+  const border = { ok: '', bad: 'border-color:rgba(255,107,107,.5)', untested: 'border-color:rgba(255,194,75,.45)', off: 'border-color:rgba(255,194,75,.45)' }[state];
   const preset = presets.find((p) => p.host === account.host) || presets[0];
   const form = (open) => html`<form id="ef" class="${open ? '' : 'hide'}" novalidate style="margin-top:18px">
     <div class="field"><label>Email provider</label><select id="pv">${presets.map((p) => html`<option value="${p.id}" ${p.id === preset.id ? 'selected' : ''}>${p.label}</option>`)}</select><div class="hint" id="ph">${preset.help}</div></div>
@@ -15,14 +23,14 @@ export default async function email(pc) {
     <div class="field"><label>Password</label><input name="pass" type="password" autocomplete="new-password" placeholder="${own && account.has_password ? 'Saved. Leave blank to keep it' : 'Mailbox password'}"><div class="hint">Stored encrypted on the server. It is never shown again.</div></div>
     <div class="row"><div class="field"><label>Send from <span class="muted">(defaults to the username)</span></label><input name="from" value="${own ? account.from : ''}" placeholder="hello@your-domain.com.au"></div><div class="field"><label>Sender name</label><input name="from_name" value="${account.from_name || 'wAIRhouse'}"></div></div>
     <div class="field"><label>Replies go to</label><input name="reply_to" value="${account.reply_to}"><div class="hint">Customers who press Reply reach this address, for example your Hotmail.</div></div>
-    <div class="err-slot"></div><div id="er"></div><button class="btn btn-p" type="submit">Save and test connection</button></form>`;
+    <div class="err-slot"></div><button class="btn btn-p" type="submit">Save and test connection</button></form>`;
 
   pc.innerHTML = html`${head('Email', 'Connect the mailbox the site sends from, and see everything it has sent.', account.configured ? html`<button class="btn btn-p" id="te">Send test email</button>` : '')}
-  <div class="panel" style="${account.configured ? '' : 'border-color:rgba(255,194,75,.45)'}"><h3>Sending account</h3>
+  <div class="panel" style="${border}"><h3>Sending account</h3>
     ${account.configured
-      ? html`<div>${badge('ok')} <b>Connected.</b> Sending as <b>${account.from_name} &lt;${account.from}&gt;</b> through ${account.host}:${account.port}. Replies go to ${account.reply_to}.</div><p class="muted" style="font-size:14px;margin-top:6px">${own ? 'Set up here in the admin.' : 'Set from the server settings. Save details below to take over from here.'}</p><div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap"><button class="btn btn-g btn-sm" id="chg">Change account</button>${own ? html`<button class="btn btn-g btn-sm" id="dis" style="color:var(--bad)">Disconnect</button>` : ''}</div>`
+      ? html`<div>${lead} Sending as <b>${account.from_name} &lt;${account.from}&gt;</b> through ${account.host}:${account.port}. Replies go to ${account.reply_to}.</div><p class="muted" style="font-size:14px;margin-top:6px">${own ? 'Set up here in the admin.' : 'Set from the server settings. Save details below to take over from here.'}</p><div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap"><button class="btn btn-g btn-sm" id="chg">Change account</button>${own ? html`<button class="btn btn-g btn-sm" id="dis" style="color:var(--bad)">Disconnect</button>` : ''}</div>`
       : html`<div><b>Email is not connected yet.</b></div><p class="muted" style="margin-top:6px;max-width:70ch">Welcome emails, booking updates, password resets and owner invitations are saved below and will be sent as soon as you connect a mailbox. Nothing is lost.</p>
-        <div class="card" style="margin-top:14px;padding:16px 18px;font-size:15px"><b>Which mailbox?</b> The easiest and most reliable is a free <b>Hostinger Email</b> mailbox on your own domain, for example <code>hello@your-domain.com.au</code>. Personal Hotmail and Outlook.com accounts no longer let websites send with a password, so they cannot be used here. Replies can still land in your Hotmail through the "Replies go to" box.</div>`}
+        <div class="card" style="margin-top:14px;padding:16px 18px;font-size:15px"><b>Which mailbox?</b> The easiest and most reliable is a <b>Hostinger Email</b> mailbox on your own domain, for example <code>hello@your-domain.com.au</code>. Personal Hotmail and Outlook.com accounts no longer let websites send with a password, so they cannot be used here. Replies can still land in your Hotmail through the "Replies go to" box.</div>`}
     ${form(!account.configured)}</div>
   <div class="panel tscroll"><div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px"><h3 style="margin:0">Sent and waiting</h3>${unsent && account.configured ? html`<button class="btn btn-p btn-sm" id="ru">Send ${unsent} waiting email${unsent > 1 ? 's' : ''} now</button>` : ''}</div>
     ${emails.length ? html`<table class="tbl"><thead><tr><th>When</th><th>To</th><th>Subject</th><th>Type</th><th>Status</th><th></th></tr></thead><tbody>${emails.map((e) => html`<tr><td style="white-space:nowrap">${date(e.created_at)}</td><td>${e.to_email}</td><td>${e.subject}${e.error ? html`<div style="font-size:12px;color:var(--bad);max-width:360px">${e.error}</div>` : ''}</td><td>${e.kind}</td><td>${badge(e.status)}</td><td style="white-space:nowrap"><button class="btn btn-g btn-sm" data-v="${e.id}">View</button> ${e.status !== 'sent' && account.configured ? html`<button class="btn btn-g btn-sm" data-r="${e.id}">Send</button>` : ''}</td></tr>`)}</tbody></table>` : empty('No email yet', 'Send a test to see how your emails look.')}</div>`.s;
@@ -33,10 +41,10 @@ export default async function email(pc) {
   $('#chg', pc)?.addEventListener('click', () => { f.classList.toggle('hide'); });
   f.addEventListener('submit', (e) => {
     e.preventDefault(); submitForm(f, async () => {
-      const d = formData(f); $('#er', f).innerHTML = '';
+      const d = formData(f);
       const r = await api('/admin/email-settings', { method: 'PUT', body: { ...d, secure: d.secure === 'true' } });
       if (r.verified) { toast('Connected. Your emails can now be sent.', 'ok'); email(pc); }
-      else { $('#er', f).innerHTML = `<div class="err" role="alert"><b>Saved, but the mail server said no:</b> ${esc(r.error)}</div>`; toast('Saved, but the connection test failed', 'bad'); }
+      else { toast('Saved, but the connection test failed', 'bad'); email(pc); } // the page now shows the reason at the top
     });
   });
   pc.onclick = async (ev) => {

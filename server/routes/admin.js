@@ -201,7 +201,7 @@ r.post('/prospects/send', wrap(async (req, res) => {
 // Safe description of the active mail account. The password is never included.
 function mailSummary() {
   const c = mailer.mailConfig(); const on = mailer.configured();
-  return { configured: on, source: on ? c.source : 'none', host: c.host, port: c.port, secure: c.secure, user: c.user ? c.user : '', from: c.from, from_name: c.fromName, reply_to: c.replyTo, has_password: !!c.pass };
+  return { configured: on, source: on ? c.source : 'none', host: c.host, port: c.port, secure: c.secure, user: c.user ? c.user : '', from: c.from, from_name: c.fromName, reply_to: c.replyTo, has_password: !!c.pass, ...mailer.lastCheck() };
 }
 const PRESETS = [
   { id: 'hostinger', label: 'Hostinger Email (recommended)', host: 'smtp.hostinger.com', port: 465, secure: true, help: 'Create a mailbox in hPanel > Emails, then use its full address and password.' },
@@ -234,7 +234,7 @@ r.put('/email-settings', wrap(async (req, res) => {
   const test = await mailer.verifyConnection(); // saved either way; tell the admin if the server said no
   res.json({ ok: true, verified: test.ok, error: test.ok ? '' : test.error, account: mailSummary() });
 }));
-r.delete('/email-settings', (req, res) => { delSecret('smtp_config'); mailer.resetTransport(); audit(req.user.id, 'email_disconnected', '', ip(req)); res.json({ ok: true, account: mailSummary() }); });
+r.delete('/email-settings', (req, res) => { delSecret('smtp_config'); delSecret('smtp_status'); mailer.resetTransport(); audit(req.user.id, 'email_disconnected', '', ip(req)); res.json({ ok: true, account: mailSummary() }); });
 
 r.get('/outbox', (_req, res) => res.json({ emails: q.all('SELECT id,kind,to_email,subject,status,error,created_at,sent_at FROM email_outbox ORDER BY id DESC LIMIT 200'), smtp: mailer.configured(), unsent: q.get("SELECT COUNT(*) c FROM email_outbox WHERE status IN ('not_sent','failed')").c }));
 r.get('/outbox/:id', (req, res) => { const e = q.get('SELECT * FROM email_outbox WHERE id = ?', int(req.params.id)); e ? res.json({ email: e }) : res.status(404).json({ error: 'Not found.' }); });

@@ -17,6 +17,22 @@ function jar() { const c = {}; return { csrf: '', async req(m, p, body, { header
 async function challenge(j) { const r = await j.req('GET', '/api/auth/captcha'); await sleep(1150); return { captcha_token: r.j.token, captcha_answer: r.h.get('x-captcha-answer'), svg: r.j.svg }; }
 const cap = (c) => ({ captcha_token: c.captcha_token, captcha_answer: c.captcha_answer });
 
+// Plain-English mail errors (pure functions, no server needed)
+{
+  const { friendlyError, accountError } = require('../server/mailerrors'); const E = (props, message = 'x') => Object.assign(new Error(message), props);
+  console.log('Mail error wording');
+  ok(/name was not found/.test(friendlyError(E({ code: 'ENOTFOUND' }, 'getaddrinfo ENOTFOUND smtp.example.com'))), 'unknown server name (ENOTFOUND) is explained');
+  ok(/name was not found/.test(friendlyError(E({}, 'getaddrinfo ENOTFOUND smtp.hostinger.com'))), 'unknown server name is explained even when the error carries no code');
+  ok(/name was not found/.test(friendlyError(E({ code: 'EDNS' }, 'DNS lookup failed'))), 'a DNS failure code (EDNS) is explained');
+  ok(/Could not reach/.test(friendlyError(E({ code: 'ETIMEDOUT' }, 'Connection timeout'))), 'a timeout is explained');
+  ok(/Could not reach/.test(friendlyError(E({ code: 'ECONNREFUSED' }, 'connect ECONNREFUSED 10.0.0.1:465'))), 'a refused connection is explained');
+  ok(/username or password/.test(friendlyError(E({ code: 'EAUTH', responseCode: 535 }, 'Invalid login: 535 5.7.8 Authentication failed'))), 'a wrong password is explained');
+  ok(/no longer allows password/.test(friendlyError(E({ code: 'EAUTH', responseCode: 535 }, '535 5.7.139 Authentication unsuccessful, basic authentication is disabled'))), 'Microsoft turning off password sign-in is explained, with the way out');
+  ok(friendlyError(E({ responseCode: 550 }, '550 5.1.1 Recipient address rejected: User unknown')).includes('550 5.1.1'), 'a refused recipient keeps the server wording so the admin can see why');
+  ok(accountError(E({ code: 'EAUTH' })) && accountError(E({}, 'getaddrinfo ENOTFOUND x.y')) && accountError(E({ code: 'ETIMEDOUT' })), 'login, DNS and timeout problems count as account problems');
+  ok(!accountError(E({ responseCode: 550 }, '550 5.1.1 User unknown')) && !accountError(null), 'one refused recipient is not blamed on the account');
+}
+
 (async () => {
   const srv = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', 'server/index.js'], { env, stdio: ['ignore', 'pipe', 'pipe'] }); let log = ''; srv.stdout.on('data', (d) => log += d); srv.stderr.on('data', (d) => log += d);
   for (let i = 0; i < 40; i++) { try { await fetch(BASE + '/api/site'); break; } catch (_) { await sleep(250); } }
@@ -78,6 +94,7 @@ const cap = (c) => ({ captcha_token: c.captcha_token, captcha_answer: c.captcha_
     r = await adm.req('PUT', '/api/admin/email-settings', { host: 'smtp.hostinger.com', port: 465, secure: true, user: 'hello@wairhouse.example', pass: SECRET_PASS, from_name: 'wAIRhouse', reply_to: 'raj_softdev@hotmail.com' });
     ok(r.s === 200 && r.j.verified === true && r.j.account.source === 'admin' && r.j.account.has_password === true, 'admin saves a mailbox and the connection is tested');
     ok(!JSON.stringify(r.j).includes(SECRET_PASS), 'the password is never sent back');
+    ok(r.j.account.verified === true && r.j.account.checked_at > 0, 'the page can tell the connection test passed (so "Connected" is backed by proof)');
     r = await adm.req('GET', '/api/admin/email-settings'); ok(!JSON.stringify(r.j).includes(SECRET_PASS) && r.j.account.from === 'hello@wairhouse.example' && r.j.account.reply_to === 'raj_softdev@hotmail.com', 'settings show From and Reply-to but never the password');
     r = await adm.req('GET', '/api/admin/settings'); ok(!JSON.stringify(r.j).includes(SECRET_PASS) && !JSON.stringify(r.j).includes('pass_enc'), 'the general settings API cannot leak the password either');
     const stored = db.prepare("SELECT value FROM secrets WHERE key = 'smtp_config'").get().value; ok(!stored.includes(SECRET_PASS) && /pass_enc/.test(stored), 'the password is stored encrypted in the database');
@@ -93,6 +110,7 @@ const cap = (c) => ({ captcha_token: c.captcha_token, captcha_answer: c.captcha_
     ok(db.prepare("SELECT status FROM email_outbox WHERE to_email = 'late@example.com'").get().status === 'sent' && db.prepare('SELECT COUNT(*) c FROM email_outbox').get().c === before, 'the same outbox row is updated (no duplicates)');
     r = await adm.req('DELETE', '/api/admin/email-settings'); ok(r.s === 200, 'admin can disconnect the mailbox');
     ok(db.prepare("SELECT COUNT(*) c FROM secrets WHERE key = 'smtp_config'").get().c === 0, 'disconnecting removes the saved password');
+    r = await adm.req('GET', '/api/admin/email-settings'); ok(r.j.account.verified === null, 'disconnecting also forgets the old connection test result');
     db.close();
   } catch (e) { fail++; console.log('  ERROR', e); } finally { srv.kill(); fs.rmSync(dir, { recursive: true, force: true }); }
   console.log(`\n${pass} passed, ${fail} failed`); if (fail) { console.log(log.slice(-1500)); process.exit(1); }

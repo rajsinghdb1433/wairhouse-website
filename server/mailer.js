@@ -6,7 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const nodemailer = require('nodemailer');
 const config = require('./config');
-const { q, now, getSetting, allSettings, getSecret } = require('./db');
+const { q, now, getSetting, allSettings, getSecret, setSecret } = require('./db');
 const { esc, hmac, decrypt } = require('./util');
 
 // The active mail account: saved in Admin > Email, else environment variables.
@@ -43,19 +43,23 @@ function getTransport() {
 }
 function resetTransport() { try { transport && transport.close(); } catch (_) { /* ignore */ } transport = null; transportKey = ''; }
 
-// Turn raw SMTP errors into something a non-technical person can act on.
-function friendlyError(e) {
-  const m = String((e && (e.response || e.message)) || e || '');
-  if (/basic authentication|5\.7\.139|5\.7\.30|SmtpClientAuthentication/i.test(m)) return 'This provider no longer allows password sign-in for sending email (personal Hotmail and Outlook accounts do not). Use a Hostinger Email mailbox or another provider.';
-  if (e && (e.code === 'EAUTH' || e.responseCode === 535) || /invalid login|authentication failed|535/i.test(m)) return 'The mail server did not accept that username or password.';
-  if (e && e.code === 'ENOTFOUND') return 'That mail server name was not found. Check the host name.';
-  if (e && (e.code === 'ETIMEDOUT' || e.code === 'ECONNREFUSED' || e.code === 'ESOCKET' || e.code === 'ECONNECTION')) return 'Could not reach the mail server. Check the host and port.';
-  return m.replace(/\s+/g, ' ').slice(0, 240) || 'Email could not be sent.';
+// Raw SMTP errors become plain English for the admin (see mailerrors.js, which is unit tested).
+const { friendlyError, accountError } = require('./mailerrors');
+
+// The last proof that the mailbox works (or does not), so Admin > Email never says "Connected" without evidence.
+// Tied to host + port + username, so changing the account clears it.
+const checkKey = (c) => hmac(`smtpcheck|${c.host}|${c.port}|${c.user}`);
+function markVerified(ok, error = '') {
+  try { const c = mailConfig(); if (!c.user) return; setSecret('smtp_status', JSON.stringify({ k: checkKey(c), ok: !!ok, error: ok ? '' : String(error).slice(0, 240), at: now() })); } catch (_) { /* never block mail on bookkeeping */ }
+}
+function lastCheck() {
+  try { const j = JSON.parse(getSecret('smtp_status') || 'null'); if (j && j.k === checkKey(mailConfig())) return { verified: !!j.ok, last_error: j.error || '', checked_at: j.at || 0 }; } catch (_) { /* treat as untested */ }
+  return { verified: null, last_error: '', checked_at: 0 };
 }
 async function verifyConnection() {
   const t = getTransport(); if (!t) return { ok: false, error: 'Email is not connected yet.' };
-  if (sink()) return { ok: true };
-  try { await t.verify(); return { ok: true }; } catch (e) { return { ok: false, error: friendlyError(e) }; }
+  if (sink()) { markVerified(true); return { ok: true }; }
+  try { await t.verify(); markVerified(true); return { ok: true }; } catch (e) { const error = friendlyError(e); markVerified(false, error); return { ok: false, error }; }
 }
 
 const LOGO_PNG = path.join(__dirname, '..', 'public', 'img', 'logo-mark.png');
@@ -73,10 +77,12 @@ async function deliver(id) {
     const headers = e.kind === 'outreach' ? { 'List-Unsubscribe': `<${unsubscribeUrl(e.to_email)}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' } : {};
     await t.sendMail({ from: { name: c.fromName, address: c.from }, replyTo: c.replyTo, to: e.to_email, subject: e.subject, html: e.html, text: e.text, attachments: attachments(), headers });
     q.run("UPDATE email_outbox SET status='sent', sent_at=?, error='' WHERE id=?", now(), id);
+    if (!sink() && lastCheck().verified !== true) markVerified(true); // a real message went out, so the account works
     return { ok: true, id };
   } catch (err) {
     const msg = friendlyError(err);
     q.run("UPDATE email_outbox SET status='failed', error=? WHERE id=?", msg.slice(0, 300), id);
+    if (accountError(err)) markVerified(false, msg); // a refused recipient is not the account's fault, a refused login is
     return { ok: false, id, error: msg };
   }
 }
@@ -238,4 +244,4 @@ const T = {
   },
 };
 
-module.exports = { send, queue, deliver, retryUnsent, verifyConnection, resetTransport, mailConfig, friendlyError, T, layout, configured, unsubscribeUrl };
+module.exports = { send, queue, deliver, retryUnsent, verifyConnection, lastCheck, resetTransport, mailConfig, friendlyError, T, layout, configured, unsubscribeUrl };
