@@ -1,9 +1,9 @@
-import { html, raw, $, $$, api, state, esc, toast, setTitle, submitForm, formData, captchaHtml, captchaMount, captchaValues, captchaRefresh, logoSvg } from '../lib.js';
+import { slotUrl, html, raw, $, $$, api, state, esc, toast, setTitle, submitForm, formData, captchaHtml, captchaMount, captchaValues, captchaRefresh, logoSvg } from '../lib.js';
 import { boxesScene } from '../scenes.js';
 import { navigate } from '../app.js';
 
 const home = (u) => u.must_change_password ? '/account/profile?force=1' : u.role === 'admin' ? '/admin' : u.role === 'owner' ? '/owner' : '/account/bookings';
-const art = (title, sub) => html`<div class="auth-art"><canvas id="aa" aria-hidden="true"></canvas><a class="logo" href="/" data-link style="position:absolute;left:60px;top:40px">${logoSvg()}<span>w<b>AIR</b>house</span></a><h2 class="h-lg" style="max-width:10ch">${title}</h2><p class="lede" style="margin-top:18px">${sub}</p></div>`;
+const art = (title, sub) => html`<div class="auth-art has-img" style="--bg-img:url('${slotUrl('auth_image')}')"><canvas id="aa" aria-hidden="true"></canvas><a class="logo" href="/" data-link style="position:absolute;left:60px;top:40px">${logoSvg()}<span>w<b>AIR</b>house</span></a><h2 class="h-lg" style="max-width:10ch">${title}</h2><p class="lede" style="margin-top:18px">${sub}</p></div>`;
 const withArt = (onLeave) => { try { const b = boxesScene($('#aa'), { count: 36 }); onLeave(() => b.dispose()); } catch (_) { /* no webgl */ } };
 
 export default async function auth(c) {

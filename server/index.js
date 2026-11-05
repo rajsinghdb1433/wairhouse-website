@@ -12,6 +12,7 @@ const { loadUser, csrfGuard } = require('./auth');
 const { esc } = require('./util');
 
 seed();
+const mediaLib = require('./media'); mediaLib.seedLibrary();
 
 const app = express();
 app.disable('x-powered-by');
@@ -90,7 +91,7 @@ app.use('/api', api);
 
 // ---------- static ----------
 const PUB = path.join(config.ROOT, 'public');
-app.use('/uploads', express.static(config.UPLOAD_DIR, { maxAge: '30d', immutable: true, index: false, dotfiles: 'deny', setHeaders: (res) => { res.set('X-Content-Type-Options', 'nosniff'); res.set('Content-Security-Policy', "default-src 'none'; img-src 'self'; sandbox"); } }));
+app.use('/uploads', express.static(config.UPLOAD_DIR, { maxAge: '30d', immutable: true, index: false, dotfiles: 'deny', setHeaders: (res) => { res.set('X-Content-Type-Options', 'nosniff'); res.set('Content-Security-Policy', "default-src 'none'; img-src 'self'; media-src 'self'; sandbox"); } }));
 app.use(express.static(PUB, { maxAge: config.isProd ? '7d' : 0, index: false, dotfiles: 'deny', setHeaders: (res, p) => { if (/\.(html)$/.test(p)) res.set('Cache-Control', 'no-cache'); } }));
 
 app.get('/robots.txt', (_req, res) => res.type('text/plain').send(`User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /owner\nDisallow: /account\nDisallow: /api/\nSitemap: ${config.siteUrl}/sitemap.xml\n`));
@@ -105,7 +106,7 @@ let shell = null;
 const readShell = () => (shell && config.isProd) ? shell : (shell = fs.readFileSync(path.join(PUB, 'index.html'), 'utf8'));
 app.get(/^\/(?!api\/|uploads\/).*/, (req, res) => {
   if (path.extname(req.path)) return res.status(404).type('text/plain').send('Not found');
-  const s = allSettings(); let title = `${s.brand_name} | ${s.tagline} Warehouse and storage marketplace`, desc = s.site_description, image = `${config.siteUrl}/img/og-cover.jpg`;
+  const s = allSettings(); let title = `${s.brand_name} | ${s.tagline} Warehouse and storage marketplace`, desc = s.site_description, image = config.siteUrl + (mediaLib.resolveAll().og_image?.url || '/img/og-cover.jpg');
   const m = req.path.match(/^\/space\/([\w-]+)/);
   if (m) {
     const l = q.get("SELECT title, summary, suburb, state, images FROM listings WHERE slug = ? AND status = 'active'", m[1]);

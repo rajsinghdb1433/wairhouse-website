@@ -1,4 +1,4 @@
-import { html, raw, $, $$, api, state, icon, listingCard, countUp, setTitle, reduceMotion, esc, money, TYPE_TILES, typeImage, TYPE_LABEL } from '../lib.js';
+import { html, raw, $, $$, api, state, icon, listingCard, countUp, setTitle, reduceMotion, esc, money, TYPE_TILES, typeImage, TYPE_LABEL, slot, slotImg, slotUrl } from '../lib.js';
 import { heroScene, spaceViz, boxesScene } from '../scenes.js';
 import { calcHtml, wireCalc } from './calc.js';
 
@@ -23,7 +23,7 @@ export default async function home({ main, onLeave }) {
   setTitle('');
   const s = state.site.settings; const st = state.site.stats; const founding = state.site.founding;
   const [featured, faqs] = await Promise.all([api('/listings?limit=6&sort=rating').catch(() => ({ listings: [] })), api('/faqs?audience=customer').catch(() => ({ faqs: [] }))]);
-  const heroTitle = s.hero_title.split('\n');
+  const heroTitle = s.hero_title.split('\n'); const sv = slot('home_showcase_video'); const hv = slot('home_hero_video');
   main.innerHTML = html`
   <section class="hero3d" id="hero"><div class="stage">
     <canvas id="hc" aria-hidden="true"></canvas><div class="vig"></div>
@@ -40,10 +40,11 @@ export default async function home({ main, onLeave }) {
 
   <div class="marquee" aria-hidden="true"><div class="track">${[0, 1].map(() => html`${['Garages', 'Spare rooms', 'Driveways', 'Sheds', 'Basements', 'Pallet racking', 'Self storage', 'Cold rooms', 'Container yards', 'Backyards', 'Dock-high warehouses'].map((x) => html`<span>${x}</span>`)}`)}</div></div>
 
-  <section class="sec light"><div class="wrap">
+  <section class="sec light"><div class="wrap"><div class="split2"><div>
     <span class="mono eyebrow rv">The idea</span>
     <h2 class="h-lg" data-split style="max-width:18ch">Space is the one thing everyone has too much of, or too little.</h2>
-    <p class="lede rv" style="margin-top:28px">Households have empty garages, spare rooms and driveways. Businesses cannot find a few pallets of space without a long contract. wAIRhouse connects them in minutes, like booking a stay, but for stuff.</p>
+    <p class="lede rv" style="margin-top:28px">Households have empty garages, spare rooms and driveways. Businesses cannot find a few pallets of space without a long contract. wAIRhouse connects them in minutes, like booking a stay, but for stuff.</p></div>
+    <div class="photo ph-tall rv">${slotImg('home_intro_image')}</div></div>
     <div class="grid g3" style="margin-top:70px">
       <div class="card rv" style="--d:0"><div class="bignum"><span data-count="${Math.max(st.spaces, 1)}">0</span>+</div><p>Spaces ready to book</p></div>
       <div class="card rv" style="--d:1"><div class="bignum"><span data-count="${Math.max(st.sqm, 1)}">0</span></div><p>Square metres of room</p></div>
@@ -75,9 +76,12 @@ export default async function home({ main, onLeave }) {
     </div></div></section>
 
   <section class="sec"><div class="wrap">
-    <div class="vid rv"><video id="fv" src="/video/flythrough.mp4" poster="/video/flythrough-poster.jpg" muted loop playsinline preload="none" aria-label="3D fly-through of a warehouse"></video>
+    <div class="vid rv"><video id="fv" src="${sv?.url || ''}" poster="${sv?.poster || ''}" muted loop playsinline preload="none" aria-label="3D fly-through of a warehouse"></video>
       <div class="over"><div style="max-width:520px"><span class="mono eyebrow">See before you store</span><h2 class="h-lg">Walk the aisles from your couch.</h2><p class="lede" style="margin-top:18px">Every listing has real photos, exact dimensions and an interactive 3D space planner, so you know it fits before you book.</p></div></div></div>
     <div class="grid g3" style="margin-top:46px">${[['shield', 'Verified owners', 'Every owner is checked and every listing is reviewed by our team before it goes live.'], ['clock', 'Flexible terms', 'From one day to two years. Extend or leave with simple notice, never a lock-in.'], ['dollar', 'Clear prices', 'The full price shows before you request. No deposits hidden in the fine print.'], ['truck', 'Built for goods', 'Forklifts, dock doors, racking, cold rooms and 24/7 access, filtered the way you work.'], ['key', 'Insurance options', 'Many spaces include insurance. Every owner carries public liability cover.'], ['msg', 'Real people', 'Message owners directly, and call our team any time for help.']].map(([i, t, p], k) => html`<div class="card hov rv" style="--d:${k % 3}"><div class="ico">${icon(i)}</div><h3>${t}</h3><p>${p}</p></div>`)}</div></div></section>
+
+  <section class="sec"><div class="wrap"><div class="split2"><div class="photo ph-wide rv">${slotImg('home_trust_image')}</div><div><span class="mono eyebrow rv">Secure by design</span><h2 class="h-lg" data-split style="max-width:14ch">Locked, lit and looked after.</h2>
+    <div class="grid" style="gap:16px;margin-top:30px">${[['key', 'Keypad and key control', 'Owners set who gets in and when. You get access details only after your booking is accepted.'], ['shield', 'Verified and reviewed', 'Every owner is checked and every listing is reviewed by our team before it goes live.'], ['camera', 'CCTV and alarms, where offered', 'Filter by the security you need: cameras, alarmed units, gates, fenced yards.']].map(([i, t, p2]) => html`<div class="card rv" style="padding:22px;display:flex;gap:16px;align-items:flex-start"><div class="ico" style="margin:0;flex:none">${icon(i)}</div><div><h3 style="font-size:20px;margin-bottom:4px">${t}</h3><p style="font-size:15px">${p2}</p></div></div>`)}</div></div></div></div></section>
 
   <section class="sec light"><div class="wrap">
     <span class="mono eyebrow rv">Why wAIRhouse</span><h2 class="h-lg" data-split style="margin-bottom:50px;max-width:16ch">Storage, but not the old way.</h2>
@@ -89,20 +93,20 @@ export default async function home({ main, onLeave }) {
   <section class="sec" id="earn-home"><div class="wrap"><div class="grid g2" style="align-items:center;gap:60px">
     <div><span class="mono eyebrow rv">For hosts</span><h2 class="h-lg" data-split>That empty space could pay you.</h2><p class="lede rv" style="margin:22px 0 30px">Spare room, garage, shed, driveway or a whole warehouse bay. List it free, set your price and your rules, and we bring the customers and handle the booking. No business needed.</p>
       <p class="rv" style="margin-bottom:30px"><span class="badge acc" style="font-size:14px;padding:8px 16px">⚡ First ${founding.slots} owners: ${s.founding_owner_commission_pct}% commission for ${s.founding_owner_months} months · ${Math.max(0, founding.slots - founding.taken)} spots left</span></p>
-      <a class="btn btn-p btn-lg rv" href="/host" data-link>Start earning</a></div>
+      <a class="btn btn-p btn-lg rv" href="/host" data-link>Start earning</a><div class="photo ph-wide rv" style="margin-top:36px">${slotImg('home_host_image')}</div></div>
     ${calcHtml(0)}</div></div></section>
 
   <section class="sec light"><div class="wrap" style="max-width:900px"><span class="mono eyebrow rv">Questions</span><h2 class="h-lg" data-split style="margin-bottom:40px">Good to know.</h2>
     <div class="acc rv">${faqs.faqs.slice(0, 6).map((f) => html`<details><summary>${f.question}</summary><p>${f.answer}</p></details>`)}</div><p style="margin-top:30px"><a class="link" href="/faq" data-link>See all questions →</a></p></div></section>
 
-  <section class="sec" style="padding-top:0"><div class="wrap"><div class="cta-band"><canvas id="cb" aria-hidden="true"></canvas><span class="mono eyebrow">Ready?</span><h2 class="h-xl" style="max-width:12ch">Find your space.</h2>
+  <section class="sec" style="padding-top:0"><div class="wrap"><div class="cta-band has-img" style="--bg-img:url('${slotUrl('home_cta_image')}')"><canvas id="cb" aria-hidden="true"></canvas><span class="mono eyebrow">Ready?</span><h2 class="h-xl" style="max-width:12ch">Find your space.</h2>
     <div style="display:flex;gap:14px;margin-top:36px;flex-wrap:wrap"><a class="btn btn-p btn-lg" href="/search" data-link>Search spaces</a><a class="btn btn-g btn-lg" href="/host" data-link>List yours</a></div></div></div></section>`.s;
 
   // ---- 3D hero: scroll drives the camera ----
   const hero = $('#hero'), stage = $('.stage', hero); const caps = $$('[data-beat]', hero); const dots = $$('[data-dot]', hero);
   const motion = !reduceMotion() && matchMedia('(min-width:761px)').matches;
   let scene = null; if (motion) { try { scene = heroScene($('#hc')); onLeave(() => scene.dispose()); } catch (e) { console.warn('3D unavailable', e); } }
-  if (!scene) { stage.style.background = "url('/img/spaces/hero.jpg') center/cover"; $('#hc').remove(); }
+  if (!scene) { stage.style.background = `url('${slotUrl('home_hero_image')}') center/cover`; $('#hc').remove(); if (hv?.kind === 'video' && !reduceMotion()) stage.insertAdjacentHTML('afterbegin', `<video class="hero-bgvideo" src="${esc(hv.url)}" autoplay loop muted playsinline aria-hidden="true"></video>`); }
   const onScroll = () => {
     const r = hero.getBoundingClientRect(); const span = hero.offsetHeight - innerHeight; const p = motion ? clamp(-r.top / span) : 0;
     scene?.setProgress(p); $('#cue').style.opacity = p < 0.03 ? 1 : 0;

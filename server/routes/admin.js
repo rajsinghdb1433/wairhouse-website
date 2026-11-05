@@ -220,4 +220,56 @@ r.get('/export/:what', (req, res) => {
   res.type('text/csv').set('Content-Disposition', `attachment; filename="${req.params.what}.csv"`).send([Object.keys(rows[0]).join(','), ...rows.map((x) => Object.values(x).map(esc).join(','))].join('\n'));
 });
 
+// ---------- media library: photos and videos shown on the public site ----------
+const fs = require('fs');
+const path = require('path');
+const multer = require('multer');
+const sharp = require('sharp');
+const media = require('../media');
+const mediaUpload = multer({ dest: path.join(config.UPLOAD_DIR, '.tmp'), limits: { fileSize: 90 * 1024 * 1024, files: 1 }, fileFilter: (_req, f, cb) => cb(null, /^(image\/(jpeg|png|webp)|video\/(mp4|webm|quicktime))$/.test(f.mimetype)) });
+const rm = (f) => fs.rm(f, { force: true }, () => {});
+
+r.get('/media', (_req, res) => {
+  const cur = media.resolveAll();
+  res.json({
+    media: q.all('SELECT id,kind,path,title,alt,builtin,size_bytes,created_at FROM media ORDER BY kind, builtin DESC, id DESC'),
+    slots: Object.entries(media.SLOTS).map(([slot, d]) => ({ slot, label: d.label, kind: d.kind, current: cur[slot], is_default: !cur[slot] || cur[slot].id === null })),
+  });
+});
+r.post('/media', mediaUpload.single('file'), wrap(async (req, res) => {
+  const f = req.file; if (!f) return res.status(400).json({ error: 'Choose a JPG, PNG or WebP photo (up to 8 MB), or an MP4 or WebM video (up to 90 MB).' });
+  const title = clean(req.body?.title, 120) || clean(f.originalname.replace(/\.[^.]+$/, ''), 120); const alt = clean(req.body?.alt, 200) || title;
+  try {
+    const fd = fs.openSync(f.path, 'r'); const head = Buffer.alloc(16); fs.readSync(fd, head, 0, 16, 0); fs.closeSync(fd);
+    const id = crypto.randomBytes(10).toString('hex'); let name, kind;
+    if (f.mimetype.startsWith('image/')) {
+      if (f.size > 8 * 1024 * 1024) { rm(f.path); return res.status(400).json({ error: 'Photos must be under 8 MB.' }); }
+      kind = 'image'; name = `m-${id}.webp`;
+      await sharp(f.path, { limitInputPixels: 80_000_000 }).rotate().resize({ width: 2000, height: 2000, fit: 'inside', withoutEnlargement: true }).webp({ quality: 82 }).toFile(path.join(config.UPLOAD_DIR, name));
+    } else {
+      const isMp4 = head.subarray(4, 8).toString('latin1') === 'ftyp'; const isWebm = head[0] === 0x1a && head[1] === 0x45 && head[2] === 0xdf && head[3] === 0xa3;
+      if (!isMp4 && !isWebm) { rm(f.path); return res.status(400).json({ error: 'That file is not a real MP4 or WebM video.' }); }
+      kind = 'video'; name = `v-${id}.${isWebm ? 'webm' : 'mp4'}`; fs.renameSync(f.path, path.join(config.UPLOAD_DIR, name));
+    }
+    rm(f.path);
+    const size = fs.statSync(path.join(config.UPLOAD_DIR, name)).size;
+    const info = q.run('INSERT INTO media(kind,path,title,alt,size_bytes,created_at) VALUES(?,?,?,?,?,?)', kind, '/uploads/' + name, title, alt, size, now());
+    audit(req.user.id, 'media_uploaded', `${kind} ${name}`, ip(req));
+    res.json({ item: q.get('SELECT id,kind,path,title,alt,builtin,size_bytes,created_at FROM media WHERE id = ?', Number(info.lastInsertRowid)) });
+  } catch (e) { rm(f.path); return res.status(400).json({ error: 'We could not read that file. Try another one.' }); }
+}));
+r.patch('/media/:id', (req, res) => { q.run('UPDATE media SET title = ?, alt = ? WHERE id = ?', clean(req.body?.title, 120), clean(req.body?.alt, 200), int(req.params.id)); res.json({ ok: true }); });
+r.delete('/media/:id', (req, res) => {
+  const m = q.get('SELECT * FROM media WHERE id = ?', int(req.params.id)); if (!m) return res.status(404).json({ error: 'Not found.' });
+  if (m.builtin) return res.status(400).json({ error: 'Built-in media cannot be deleted. Pick something else for the slot instead.' });
+  media.unassignMedia(m.id); q.run('DELETE FROM media WHERE id = ?', m.id); rm(path.join(config.UPLOAD_DIR, path.basename(m.path)));
+  audit(req.user.id, 'media_deleted', m.path, ip(req)); res.json({ ok: true });
+});
+r.put('/media-slots', (req, res) => {
+  const slot = String(req.body?.slot || ''); const d = media.SLOTS[slot]; if (!d) return res.status(400).json({ error: 'Unknown placement.' });
+  const id = int(req.body?.media_id, 0);
+  if (id) { const m = q.get('SELECT kind FROM media WHERE id = ?', id); if (!m || m.kind !== d.kind) return res.status(400).json({ error: `This placement needs a ${d.kind}.` }); }
+  media.assign(slot, id); audit(req.user.id, 'media_slot', `${slot}=${id}`, ip(req)); res.json({ ok: true, current: media.resolveAll()[slot] });
+});
+
 module.exports = r;

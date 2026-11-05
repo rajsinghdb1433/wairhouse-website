@@ -69,8 +69,8 @@ r.get('/site', (req, res) => {
     sqm: Math.round(q.get("SELECT COALESCE(SUM(total_sqm),0) c FROM listings WHERE status='active'" + demoClause()).c),
   };
   const founding = { slots: int(s.founding_owner_slots, 0), taken: q.get("SELECT COUNT(*) c FROM users WHERE role='owner' AND email NOT LIKE '%@demo.wairhouse.example'").c };
-  res.set('Cache-Control', 'public, max-age=60');
-  res.json({ settings: out, stats, founding, stripe: !!config.stripe.secret && s.stripe_enabled === '1' });
+  res.set('Cache-Control', 'public, max-age=30');
+  res.json({ settings: out, media: require('../media').resolveAll(), stats, founding, stripe: !!config.stripe.secret && s.stripe_enabled === '1' });
 });
 
 r.get('/pages', (_req, res) => res.json({ pages: q.all("SELECT slug,title,category,updated_at FROM pages WHERE published=1 ORDER BY category, title") }));

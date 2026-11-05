@@ -83,6 +83,22 @@ function jar() { const c = {}; return { csrf: '', async req(m, p, body, { raw, h
     r = await adm.req('PUT', '/api/admin/settings', { service_fee_pct: '99' }); ok(r.s === 400, 'invalid fee rejected');
     r = await anon.req('POST', '/api/contact', { name: 'Jo', email: 'jo@example.com', message: 'Hello, I would like to know more.' }); ok(r.s === 200, 'contact form works'); r = await adm.req('GET', '/api/admin/inbox'); ok(r.j.messages.length === 1, 'enquiry reaches admin inbox');
     const csv = await adm.req('GET', '/api/admin/export/users', null, { raw: true }); ok(csv.s === 200 && (await csv.r.text()).includes('olive@example.com'), 'CSV export works');
+    console.log('Photos and videos');
+    r = await anon.req('GET', '/api/site'); ok(r.j.media.home_intro_image?.url === '/img/photos/family-moving.jpg' && r.j.media.home_showcase_video?.kind === 'video', 'site serves built-in placements by default');
+    r = await owner.req('GET', '/api/admin/media'); ok(r.s === 403, 'only admins can open the media library');
+    const pj = await sharp({ create: { width: 1200, height: 800, channels: 3, background: '#a33' } }).jpeg().toBuffer(); let mf = new FormData(); mf.append('file', new Blob([pj], { type: 'image/jpeg' }), 'hero.jpg'); mf.append('title', 'Test hero');
+    r = await adm.req('POST', '/api/admin/media', mf); ok(r.s === 200 && r.j.item.path.endsWith('.webp') && r.j.item.kind === 'image', 'admin uploads a photo (re-encoded to webp)'); const imgId = r.j.item.id; const imgPath = r.j.item.path;
+    r = await anon.req('GET', imgPath, null, { raw: true }); ok(r.s === 200 && /image\/webp/.test(r.h.get('content-type')), 'uploaded photo is publicly served');
+    r = await adm.req('PUT', '/api/admin/media-slots', { slot: 'home_intro_image', media_id: imgId }); ok(r.s === 200, 'admin places the photo on the home page');
+    r = await anon.req('GET', '/api/site'); ok(r.j.media.home_intro_image.url === imgPath, 'customers see the new photo through the site API');
+    r = await adm.req('PUT', '/api/admin/media-slots', { slot: 'home_showcase_video', media_id: imgId }); ok(r.s === 400, 'a photo cannot be placed in a video slot');
+    const mp4 = Buffer.concat([Buffer.from([0, 0, 0, 24]), Buffer.from('ftypmp42'), Buffer.alloc(200)]); mf = new FormData(); mf.append('file', new Blob([mp4], { type: 'video/mp4' }), 'tour.mp4');
+    r = await adm.req('POST', '/api/admin/media', mf); ok(r.s === 200 && r.j.item.kind === 'video' && r.j.item.path.endsWith('.mp4'), 'admin uploads a video'); const vidId = r.j.item.id;
+    r = await adm.req('PUT', '/api/admin/media-slots', { slot: 'home_hero_video', media_id: vidId }); r = await anon.req('GET', '/api/site'); ok(r.j.media.home_hero_video?.kind === 'video', 'customers see the new hero video');
+    mf = new FormData(); mf.append('file', new Blob(['not a video at all'], { type: 'video/mp4' }), 'evil.mp4'); r = await adm.req('POST', '/api/admin/media', mf); ok(r.s === 400, 'a fake video file is rejected');
+    mf = new FormData(); mf.append('file', new Blob(['<script>alert(1)</script>'], { type: 'text/html' }), 'x.html'); r = await adm.req('POST', '/api/admin/media', mf); ok(r.s === 400, 'non-media file types are rejected');
+    r = await adm.req('DELETE', '/api/admin/media/' + imgId); ok(r.s === 200, 'admin deletes an upload'); r = await anon.req('GET', '/api/site'); ok(r.j.media.home_intro_image.url === '/img/photos/family-moving.jpg', 'deleting reverts the slot to the built-in photo');
+    r = await adm.req('GET', '/api/admin/media'); const builtin = r.j.media.find((m) => m.builtin); r = await adm.req('DELETE', '/api/admin/media/' + builtin.id); ok(r.s === 400, 'built-in media cannot be deleted');
     r = await adm.req('POST', '/api/admin/demo/purge'); ok(r.j.removed >= 16, 'one-click sample data purge'); r = await anon.req('GET', '/api/listings'); ok(r.j.total === 1, 'only the real listing remains');
     r = await adm.req('POST', '/api/auth/logout'); r = await adm.req('GET', '/api/admin/stats'); ok(r.s === 401, 'logout kills the session');
   } catch (e) { fail++; console.log('  ERROR', e); } finally { srv.kill(); fs.rmSync(dir, { recursive: true, force: true }); }

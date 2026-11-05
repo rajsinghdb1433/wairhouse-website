@@ -63,7 +63,9 @@ const L = [
   ['basement', 'Sandy Bay Attic Storage', 'A dry, floored attic with a pull-down ladder. Light items only: seasonal clothes, decorations and archives.', 'Sandy Bay', 'TAS', '7005', -42.9, 147.33, 'unit', 110, 'month', 1, 10, 1.8, 14, 7, ['Floored attic', 'Dry and clean', 'Light items only'], 'basement', 0, 0],
   ['cold-storage', 'Corio Wine and Cool Room', 'Cellar-grade cool room for wine, produce and boutique food brands.', 'Corio', 'VIC', '3214', -38.08, 144.37, 'pallet', 11.5, 'week', 60, 220, 4, 14, 4, ['Temperature monitored', 'Food grade', 'Backup power', 'Low vibration', 'Insured goods'], 'cold', 0, 1],
 ];
-const img = (k) => [`/img/spaces/${k}.jpg`];
+// Business listings use the supplied photos; household listings keep the 3D pictures (no home-storage photos supplied yet).
+const PHOTO = { racking: '/img/photos/inventory.jpg', dock: '/img/photos/unloading.jpg', selfstorage: '/img/photos/storage-interior.jpg', containers: '/img/photos/facility-dusk.jpg' };
+const img = (k) => [PHOTO[k] || `/img/spaces/${k}.jpg`];
 
 function seed() {
   // 1. admin (never ships with a known password)
@@ -95,7 +97,7 @@ function seed() {
       q.run(`INSERT INTO listings(owner_id,slug,title,summary,description,type,address_line,suburb,state,postcode,lat,lng,unit,price_cents,period,capacity,total_sqm,height_m,min_days,features,images,access_hours,instant_book,insurance_included,status,featured,is_demo,created_at,updated_at)
         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'active',?,1,?,?)`,
         ids[oi], slug, title, summary, `${summary}\n\nThis is a sample listing shown so you can explore how wAIRhouse works. ${title} offers ${unit === 'sqm' ? capacity + ' square metres' : unit === 'unit' ? (capacity === 1 ? 'a single space' : capacity + ' spaces') : capacity + ' pallets'} available, with a ${minDays}-day minimum booking. Access, handling and security are described in the feature list. Message the owner with any question before you book.`,
-        type, '', suburb, state, postcode, lat, lng, unit, Math.round(price * 100), period, capacity, sqm, height, minDays, JSON.stringify(features), JSON.stringify(img(im)),
+        type, '', suburb, state, postcode, lat, lng, unit, Math.round(price * 100), period, capacity, sqm, height, minDays, JSON.stringify(features), JSON.stringify(/Pallet/.test(title) && im === 'racking' ? ['/img/photos/pallet-boxes.jpg'] : img(im)),
         ['garage', 'spare-room', 'shed', 'basement'].includes(type) ? 'By arrangement with the host' : type === 'parking' ? '24/7' : type === 'self-storage' || type === 'pop-up' ? '24/7 with code' : 'Mon to Fri 7am to 5pm, Sat 8am to 12pm', instant, insured, x === L[0] || x === L[3] || x === L[7] || /Parramatta|Bondi|Fitzroy/.test(title) ? 1 : 0, now(), now());
     }
   }

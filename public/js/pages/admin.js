@@ -2,13 +2,14 @@ import { html, raw, esc, $, $$, api, state, icon, date, money, moneyP, toast, mo
 import { shell, head, badge, empty, kpi } from './portal.js';
 import { profile } from './account.js';
 
-const LINKS = (n = {}) => [['/admin', 'Dashboard', 'chart'], ['/admin/listings', 'Listings', 'layers', n.pending_listings], ['/admin/bookings', 'Bookings', 'cal', n.pending_bookings], ['/admin/users', 'Users', 'users'], ['/admin/outreach', 'Owner outreach', 'send'], ['/admin/inbox', 'Inbox', 'msg', n.inbox], ['/admin/pages', 'Legal and pages', 'file'], ['/admin/faqs', 'FAQs', 'list'], ['/admin/settings', 'Site settings', 'cog'], ['/admin/email', 'Email', 'mail', n.outbox_failed], ['/admin/audit', 'Security log', 'lock'], ['/admin/profile', 'My security', 'key'], ['/owner', 'Owner view', 'home']];
+const LINKS = (n = {}) => [['/admin', 'Dashboard', 'chart'], ['/admin/listings', 'Listings', 'layers', n.pending_listings], ['/admin/bookings', 'Bookings', 'cal', n.pending_bookings], ['/admin/users', 'Users', 'users'], ['/admin/outreach', 'Owner outreach', 'send'], ['/admin/inbox', 'Inbox', 'msg', n.inbox], ['/admin/pages', 'Legal and pages', 'file'], ['/admin/faqs', 'FAQs', 'list'], ['/admin/settings', 'Site settings', 'cog'], ['/admin/media', 'Photos and videos', 'camera'], ['/admin/email', 'Email', 'mail', n.outbox_failed], ['/admin/audit', 'Security log', 'lock'], ['/admin/profile', 'My security', 'key'], ['/owner', 'Owner view', 'home']];
 
 export default async function admin(c) {
   const { main, path } = c; const sub = path.split('/').filter(Boolean)[1] || 'dashboard';
   const stats = await api('/admin/stats').catch(() => ({})); c.stats = stats;
   const pc = shell(main, { links: LINKS(stats), active: sub === 'dashboard' ? '/admin' : '/admin/' + sub, role: 'Admin' });
   const views = { dashboard, listings, bookings, users, outreach, inbox, pages, faqs, settings, email, audit, profile: (p) => profile(p, c) };
+  if (sub === 'media') return (await import('./admin-media.js')).default(pc, c);
   return (views[sub] || dashboard)(pc, c);
 }
 

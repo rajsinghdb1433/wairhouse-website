@@ -1,5 +1,5 @@
 // Right-hand staggered menu. Lives outside #app so it survives page changes. GSAP (vendored) drives the choreography.
-import { state, esc, reduceMotion } from './lib.js';
+import { state, esc, reduceMotion, slot } from './lib.js';
 
 let el = null, gsap = null, open = false, tl = null;
 
@@ -29,7 +29,7 @@ export function mountMenu() {
   if (el) return;
   el = document.createElement('div'); el.className = 'sm';
   el.innerHTML = `<div class="menu-backdrop"></div><div class="menu-prelayer menu-prelayer-1"></div><div class="menu-prelayer menu-prelayer-2"></div>
-  <aside class="menu-panel" aria-label="Site menu" inert><div><div class="menu-eyebrow">${esc(state.site.settings.tagline)}</div><ul class="menu-nav"></ul><a class="menu-cta" href="/host/join">List your space free</a></div><div class="menu-socials"></div></aside>
+  <aside class="menu-panel" aria-label="Site menu" inert><div><div class="menu-eyebrow">${esc(state.site.settings.tagline)}</div><ul class="menu-nav"></ul><a class="menu-cta" href="/host/join">List your space free</a></div><div class="menu-media"></div><div class="menu-socials"></div></aside>
   <button class="menu-toggle" type="button" aria-expanded="false" aria-label="Open menu"><span class="menu-toggle-label"><span class="l-menu">MENU</span><span class="l-close">CLOSE</span></span><span class="menu-toggle-icon" aria-hidden="true">+</span></button>`;
   document.body.appendChild(el);
   q('.l-close').style.transform = 'translateY(100%)';
@@ -47,7 +47,7 @@ const q = (s) => el.querySelector(s);
 // Rebuild the link list (login state and active page change between renders) and keep the pill clear of the announcement bar.
 export function refresh() {
   if (!el) return;
-  q('.menu-nav').innerHTML = navHtml(); q('.menu-socials').innerHTML = socialsHtml(); q('.menu-eyebrow').textContent = state.site.settings.tagline;
+  q('.menu-nav').innerHTML = navHtml(); q('.menu-socials').innerHTML = socialsHtml(); const mm = slot('menu_image'); q('.menu-media').innerHTML = mm && mm.kind === 'image' ? `<img src="${esc(mm.url)}" alt="${esc(mm.alt)}" loading="lazy">` : ''; q('.menu-eyebrow').textContent = state.site.settings.tagline;
   placeToggle();
 }
 export function placeToggle() {

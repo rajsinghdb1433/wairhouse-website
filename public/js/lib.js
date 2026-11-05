@@ -30,8 +30,12 @@ export const date = (t) => t ? new Date(t).toLocaleDateString('en-AU', { day: 'n
 export const unitWord = { sqm: 'm²', pallet: 'pallet', unit: 'space' };
 export const perWord = { day: 'day', week: 'week', month: 'month' };
 export const TYPE_LABEL = { warehouse: 'Warehouse', pallet: 'Pallet storage', 'self-storage': 'Self storage', container: 'Container', 'cold-storage': 'Cold storage', yard: 'Yard or backyard', garage: 'Garage', shed: 'Shed', 'spare-room': 'Spare room', basement: 'Basement or attic', parking: 'Car space or driveway', 'pop-up': 'Pop-up space', 'commercial-kitchen': 'Commercial kitchen', other: 'Other' };
-const TYPE_IMG = { warehouse: 'dock', pallet: 'racking', 'self-storage': 'selfstorage', container: 'containers', 'cold-storage': 'cold', yard: 'shed', garage: 'garage', shed: 'shed', 'spare-room': 'room', basement: 'basement', parking: 'parking', 'pop-up': 'dock', 'commercial-kitchen': 'dock', other: 'racking' };
-export const typeImage = (t, sm = false) => `/img/spaces/${TYPE_IMG[t] || 'racking'}${sm ? '-sm' : ''}.jpg`;
+const TYPE_IMG = { warehouse: '/img/photos/inventory', pallet: '/img/photos/pallet-boxes', 'self-storage': '/img/photos/storage-interior', container: '/img/photos/facility-dusk', 'cold-storage': '/img/spaces/cold', yard: '/img/spaces/shed', garage: '/img/spaces/garage', shed: '/img/spaces/shed', 'spare-room': '/img/spaces/room', basement: '/img/spaces/basement', parking: '/img/spaces/parking', 'pop-up': '/img/photos/unloading', 'commercial-kitchen': '/img/photos/owner-staff', other: '/img/photos/inventory' };
+export const typeImage = (t, sm = false) => `${TYPE_IMG[t] || '/img/photos/inventory'}${sm ? '-sm' : ''}.jpg`;
+// Admin-managed pictures and videos. Each named slot on the site resolves to the admin's pick, or a built-in default.
+export const slot = (name) => state.site?.media?.[name] || null;
+export const slotImg = (name, cls = '') => { const m = slot(name); return m && m.kind === 'image' ? html`<img class="${cls}" src="${m.url}" alt="${m.alt}" loading="lazy" decoding="async">` : ''; };
+export const slotUrl = (name) => { const m = slot(name); return m ? m.url : ''; };
 // Typical earnings for one space, from published Australian platform and market figures (see docs/PRICING-RESEARCH.md).
 export const TYPE_TILES = [
   { t: 'garage', name: 'Garage', earn: '$200 to $350', tip: 'a month', blurb: 'Lock-up garages are the most in-demand space for furniture, tools and stock.', icon: 'key' },
