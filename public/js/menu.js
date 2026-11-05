@@ -1,5 +1,6 @@
 // Right-hand staggered menu. Lives outside #app so it survives page changes. GSAP (vendored) drives the choreography.
 import { state, esc, reduceMotion, slot } from './lib.js';
+import { toggleTheme, themeIcons, syncTheme } from './theme.js';
 
 let el = null, gsap = null, open = false, tl = null;
 
@@ -30,12 +31,13 @@ export function mountMenu() {
   el = document.createElement('div'); el.className = 'sm';
   el.innerHTML = `<div class="menu-backdrop"></div><div class="menu-prelayer menu-prelayer-1"></div><div class="menu-prelayer menu-prelayer-2"></div>
   <aside class="menu-panel" aria-label="Site menu" inert><div><div class="menu-eyebrow">${esc(state.site.settings.tagline)}</div><ul class="menu-nav"></ul><a class="menu-cta" href="/host/join">List your space free</a></div><div class="menu-media"></div><div class="menu-socials"></div></aside>
-  <button class="menu-toggle" type="button" aria-expanded="false" aria-label="Open menu"><span class="menu-toggle-label"><span class="l-menu">Menu</span><span class="l-close">Close</span></span><span class="menu-toggle-icon" aria-hidden="true">+</span></button>`;
+  <div class="sm-bar"><button class="theme-toggle" type="button" aria-label="Switch to light theme" title="Switch to light theme">${themeIcons}</button><button class="menu-toggle" type="button" aria-expanded="false" aria-label="Open menu"><span class="menu-toggle-label"><span class="l-menu">Menu</span><span class="l-close">Close</span></span><span class="menu-toggle-icon" aria-hidden="true">+</span></button></div>`;
   document.body.appendChild(el);
   q('.l-close').style.transform = 'translateY(100%)';
   // Hand the starting positions to GSAP once it has loaded (inline 'none' first so CSS px values are not double-counted).
   loadGsap().then((g) => { gsap = g; if (!g) return; const nodes = [q('.menu-prelayer-1'), q('.menu-prelayer-2'), q('.menu-panel'), q('.l-close')]; nodes.forEach((n) => { n.style.transform = 'none'; }); g.set(nodes.slice(0, 3), { xPercent: 100 }); g.set(q('.l-close'), { yPercent: 100 }); });
   q('.menu-toggle').addEventListener('click', () => (open ? close() : openMenu()));
+  q('.theme-toggle').addEventListener('click', toggleTheme); syncTheme();
   q('.menu-backdrop').addEventListener('click', close);
   q('.menu-panel').addEventListener('click', (e) => { if (e.target.closest('a')) close(); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && open) close(); });
@@ -52,7 +54,7 @@ export function refresh() {
 }
 export function placeToggle() {
   if (!el) return; const ann = document.getElementById('ann'); const aH = ann ? ann.offsetHeight : 0;
-  q('.menu-toggle').style.top = (Math.max(0, aH - scrollY) + 12) + 'px';
+  q('.sm-bar').style.top = (Math.max(0, aH - scrollY) + 12) + 'px';
 }
 addEventListener('scroll', () => placeToggle(), { passive: true });
 
@@ -60,9 +62,9 @@ async function openMenu() {
   if (open) return; open = true;
   if (!gsap) gsap = await loadGsap();
   if (!open) return; // closed again while loading
-  const panel = q('.menu-panel'), toggle = q('.menu-toggle'), back = q('.menu-backdrop'), p1 = q('.menu-prelayer-1'), p2 = q('.menu-prelayer-2');
+  const panel = q('.menu-panel'), toggle = q('.menu-toggle'), bar = q('.sm-bar'), back = q('.menu-backdrop'), p1 = q('.menu-prelayer-1'), p2 = q('.menu-prelayer-2');
   const links = [...el.querySelectorAll('.menu-nav li a')], foot = [q('.menu-cta'), q('.menu-socials')];
-  panel.classList.add('is-open'); panel.removeAttribute('inert'); toggle.classList.add('is-open'); toggle.setAttribute('aria-expanded', 'true'); toggle.setAttribute('aria-label', 'Close menu'); back.classList.add('on');
+  panel.classList.add('is-open'); panel.removeAttribute('inert'); toggle.classList.add('is-open'); bar.classList.add('is-open'); toggle.setAttribute('aria-expanded', 'true'); toggle.setAttribute('aria-label', 'Close menu'); back.classList.add('on');
   document.documentElement.style.overflow = 'hidden';
   if (!gsap || reduceMotion()) { [p1, p2].forEach((p) => { p.style.transform = 'translateX(100%)'; }); panel.style.transform = 'none'; if (gsap) { gsap.set([p1, p2], { xPercent: 100 }); gsap.set(panel, { xPercent: 0 }); gsap.set(q('.l-menu'), { yPercent: -100 }); gsap.set(q('.l-close'), { yPercent: 0 }); } back.style.opacity = 1; q('.l-menu').style.transform = 'translateY(-100%)'; q('.l-close').style.transform = 'none'; links.concat(foot).forEach((l) => { l.style.opacity = 1; }); links[0]?.focus(); return; }
   tl?.kill(); gsap.set(links, { x: -40, opacity: 0 }); gsap.set(foot, { y: 20, opacity: 0 }); gsap.set([p1, p2, panel], { xPercent: 100 });
@@ -78,8 +80,8 @@ async function openMenu() {
 
 function close() {
   if (!open) return; open = false;
-  const panel = q('.menu-panel'), toggle = q('.menu-toggle'), back = q('.menu-backdrop');
-  toggle.classList.remove('is-open'); toggle.setAttribute('aria-expanded', 'false'); toggle.setAttribute('aria-label', 'Open menu'); back.classList.remove('on'); panel.setAttribute('inert', '');
+  const panel = q('.menu-panel'), toggle = q('.menu-toggle'), bar = q('.sm-bar'), back = q('.menu-backdrop');
+  toggle.classList.remove('is-open'); bar.classList.remove('is-open'); toggle.setAttribute('aria-expanded', 'false'); toggle.setAttribute('aria-label', 'Open menu'); back.classList.remove('on'); panel.setAttribute('inert', '');
   const done = () => { panel.classList.remove('is-open'); document.documentElement.style.overflow = ''; };
   if (!gsap || reduceMotion()) { panel.style.transform = ''; back.style.opacity = 0; q('.l-menu').style.transform = ''; q('.l-close').style.transform = 'translateY(100%)'; done(); return; }
   tl?.kill(); const links = [...el.querySelectorAll('.menu-nav li a')];
