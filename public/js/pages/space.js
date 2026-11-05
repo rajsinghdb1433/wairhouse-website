@@ -9,7 +9,7 @@ export default async function space({ main, params, onLeave }) {
     main.innerHTML = html`<div class="wrap" style="padding:200px 0;text-align:center"><h1 class="h-lg">That space is gone.</h1><p class="lede" style="margin:18px auto 30px">${e.message}</p><a class="btn btn-p" href="/search" data-link>Find another</a></div>`.s; return;
   }
   const { listing: l, owner, reviews, similar } = data; setTitle(`${l.title}, ${l.suburb} ${l.state}`);
-  const imgs = l.images.length ? l.images : ['/img/spaces/racking.jpg']; const wished = state.wish.has(l.id);
+  const imgs = l.images.length ? l.images : [typeImage(l.type)]; const wished = state.wish.has(l.id);
   const startDefault = todayISO(Math.max(3, 0)); const endDefault = todayISO(3 + Math.max(l.min_days, 30));
   const demo = l.is_demo;
   main.innerHTML = html`

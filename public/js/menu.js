@@ -30,7 +30,7 @@ export function mountMenu() {
   el = document.createElement('div'); el.className = 'sm';
   el.innerHTML = `<div class="menu-backdrop"></div><div class="menu-prelayer menu-prelayer-1"></div><div class="menu-prelayer menu-prelayer-2"></div>
   <aside class="menu-panel" aria-label="Site menu" inert><div><div class="menu-eyebrow">${esc(state.site.settings.tagline)}</div><ul class="menu-nav"></ul><a class="menu-cta" href="/host/join">List your space free</a></div><div class="menu-media"></div><div class="menu-socials"></div></aside>
-  <button class="menu-toggle" type="button" aria-expanded="false" aria-label="Open menu"><span class="menu-toggle-label"><span class="l-menu">MENU</span><span class="l-close">CLOSE</span></span><span class="menu-toggle-icon" aria-hidden="true">+</span></button>`;
+  <button class="menu-toggle" type="button" aria-expanded="false" aria-label="Open menu"><span class="menu-toggle-label"><span class="l-menu">Menu</span><span class="l-close">Close</span></span><span class="menu-toggle-icon" aria-hidden="true">+</span></button>`;
   document.body.appendChild(el);
   q('.l-close').style.transform = 'translateY(100%)';
   // Hand the starting positions to GSAP once it has loaded (inline 'none' first so CSS px values are not double-counted).
@@ -52,7 +52,7 @@ export function refresh() {
 }
 export function placeToggle() {
   if (!el) return; const ann = document.getElementById('ann'); const aH = ann ? ann.offsetHeight : 0;
-  q('.menu-toggle').style.top = (Math.max(0, aH - scrollY) + 8) + 'px';
+  q('.menu-toggle').style.top = (Math.max(0, aH - scrollY) + 12) + 'px';
 }
 addEventListener('scroll', () => placeToggle(), { passive: true });
 

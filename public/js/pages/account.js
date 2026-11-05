@@ -1,4 +1,5 @@
 import { html, raw, esc, $, $$, api, state, icon, date, money, moneyP, toast, modal, confirmBox, formData, submitForm, setTitle, listingCard, tilt, TYPE_LABEL } from '../lib.js';
+import { typeImage } from '../lib.js';
 import { shell, head, badge, empty, messagesView, verifyBanner, wireVerify } from './portal.js';
 import { navigate } from '../app.js';
 
@@ -15,7 +16,7 @@ async function bookings(pc, { query }) {
   pc.innerHTML = html`${head('My bookings', 'Everything you have requested or booked.', html`<a class="btn btn-p" href="/search" data-link>Find more space</a>`)}${verifyBanner()}
   ${query.paid ? html`<div class="okmsg">Thanks! Payment received for ${query.paid}.</div>` : ''}
   ${list.length ? html`<div class="grid" style="gap:16px">${list.map((b) => html`<div class="panel" style="margin:0"><div style="display:flex;gap:20px;flex-wrap:wrap;align-items:center">
-    <img src="${b.listing?.images?.[0] || '/img/spaces/racking.jpg'}" alt="" style="width:150px;height:100px;object-fit:cover;border-radius:14px">
+    <img src="${b.listing?.images?.[0] || typeImage(b.listing?.type)}" alt="" style="width:150px;height:100px;object-fit:cover;border-radius:14px">
     <div style="flex:1;min-width:220px"><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">${badge(b.status)}${badge(b.payment_status)}<span class="mono" style="color:var(--dim)">${b.ref}</span></div>
       <h3 style="margin:0 0 4px;font-size:22px"><a href="/space/${b.listing?.slug}" data-link>${b.listing?.title}</a></h3><p class="muted">${b.start_date} → ${b.end_date} · ${b.quantity} ${b.listing?.unit}${b.quantity > 1 ? 's' : ''} · <b style="color:#fff">${money(b.total_cents, 2)}</b></p>
       ${b.listing?.address_line ? html`<p class="muted" style="font-size:14px">📍 ${b.listing.address_line}, ${b.listing.suburb} ${b.listing.state}${b.listing.access_hours ? ' · Access: ' + b.listing.access_hours : ''}</p>` : ''}</div>
