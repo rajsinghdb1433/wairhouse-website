@@ -1,0 +1,42 @@
+{
+  "name": "wairhouse-website",
+  "version": "1.0.0",
+  "description": "wAIRhouse - the marketplace for warehouse and storage space. Customer, Owner and Admin portals.",
+  "main": "server/index.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning server/index.js",
+    "dev": "node --disable-warning=ExperimentalWarning --watch server/index.js",
+    "build:assets": "node scripts/build-assets.js",
+    "postinstall": "node scripts/build-assets.js",
+    "test": "node --disable-warning=ExperimentalWarning scripts/smoke-test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rajsinghdb1433/wairhouse-website.git"
+  },
+  "license": "UNLICENSED",
+  "private": true,
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "compression": "^1.8.2",
+    "cookie-parser": "^1.4.7",
+    "express": "^5.3.0",
+    "express-rate-limit": "^8.7.3",
+    "helmet": "^8.3.0",
+    "leaflet": "^1.9.4",
+    "multer": "^2.5.0",
+    "nodemailer": "^10.3.1",
+    "qrcode": "^1.5.4",
+    "sharp": "^0.35.5",
+    "three": "^0.185.0"
+  },
+  "devDependencies": {
+    "@fontsource-variable/bricolage-grotesque": "^5.3.0",
+    "@fontsource-variable/manrope": "^5.3.0",
+    "@fontsource/jetbrains-mono": "^5.3.0"
+  }
+}
