@@ -29,7 +29,7 @@ function ownerCommissionPct(ownerId) {
   const s = allSettings(); const base = parseFloat(s.owner_commission_pct) || 0;
   const slots = int(s.founding_owner_slots, 0); const months = int(s.founding_owner_months, 0);
   const o = q.get('SELECT id, created_at FROM users WHERE id = ?', ownerId); if (!o) return base;
-  const rank = q.get("SELECT COUNT(*) c FROM users WHERE role='owner' AND (created_at < ? OR (created_at = ? AND id <= ?))", o.created_at, o.created_at, o.id).c;
+  const rank = q.get("SELECT COUNT(*) c FROM users WHERE role='owner' AND email NOT LIKE '%@demo.wairhouse.example' AND (created_at < ? OR (created_at = ? AND id <= ?))", o.created_at, o.created_at, o.id).c;
   const within = Date.now() < o.created_at + months * 30.4 * 86400_000;
   return (rank <= slots && within) ? (parseFloat(s.founding_owner_commission_pct) || 0) : base;
 }
@@ -68,7 +68,7 @@ r.get('/site', (req, res) => {
     cities: q.get("SELECT COUNT(DISTINCT suburb) c FROM listings WHERE status='active'" + demoClause()).c,
     sqm: Math.round(q.get("SELECT COALESCE(SUM(total_sqm),0) c FROM listings WHERE status='active'" + demoClause()).c),
   };
-  const founding = { slots: int(s.founding_owner_slots, 0), taken: q.get("SELECT COUNT(*) c FROM users WHERE role='owner'").c };
+  const founding = { slots: int(s.founding_owner_slots, 0), taken: q.get("SELECT COUNT(*) c FROM users WHERE role='owner' AND email NOT LIKE '%@demo.wairhouse.example'").c };
   res.set('Cache-Control', 'public, max-age=60');
   res.json({ settings: out, stats, founding, stripe: !!config.stripe.secret && s.stripe_enabled === '1' });
 });
