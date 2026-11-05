@@ -27,9 +27,22 @@ export async function api(path, { method = 'GET', body, form } = {}) {
 export const money = (c, d = 0) => new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD', minimumFractionDigits: d, maximumFractionDigits: d }).format((c || 0) / 100);
 export const moneyP = (c) => money(c, c % 100 ? 2 : 0);
 export const date = (t) => t ? new Date(t).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
-export const unitWord = { sqm: 'm²', pallet: 'pallet', unit: 'unit' };
+export const unitWord = { sqm: 'm²', pallet: 'pallet', unit: 'space' };
 export const perWord = { day: 'day', week: 'week', month: 'month' };
-export const TYPE_LABEL = { warehouse: 'Warehouse', 'self-storage': 'Self storage', container: 'Container', 'cold-storage': 'Cold storage', pallet: 'Pallet storage', yard: 'Yard', garage: 'Garage', 'pop-up': 'Pop-up space', 'commercial-kitchen': 'Commercial kitchen', other: 'Other' };
+export const TYPE_LABEL = { warehouse: 'Warehouse', pallet: 'Pallet storage', 'self-storage': 'Self storage', container: 'Container', 'cold-storage': 'Cold storage', yard: 'Yard or backyard', garage: 'Garage', shed: 'Shed', 'spare-room': 'Spare room', basement: 'Basement or attic', parking: 'Car space or driveway', 'pop-up': 'Pop-up space', 'commercial-kitchen': 'Commercial kitchen', other: 'Other' };
+const TYPE_IMG = { warehouse: 'dock', pallet: 'racking', 'self-storage': 'selfstorage', container: 'containers', 'cold-storage': 'cold', yard: 'shed', garage: 'garage', shed: 'shed', 'spare-room': 'room', basement: 'basement', parking: 'parking', 'pop-up': 'dock', 'commercial-kitchen': 'dock', other: 'racking' };
+export const typeImage = (t, sm = false) => `/img/spaces/${TYPE_IMG[t] || 'racking'}${sm ? '-sm' : ''}.jpg`;
+// Typical earnings for one space, from published Australian platform and market figures (see docs/PRICING-RESEARCH.md).
+export const TYPE_TILES = [
+  { t: 'garage', name: 'Garage', earn: '$200 to $350', tip: 'a month', blurb: 'Lock-up garages are the most in-demand space for furniture, tools and stock.', icon: 'key' },
+  { t: 'spare-room', name: 'Spare room', earn: '$150 to $250', tip: 'a month', blurb: 'An empty bedroom or study can hold boxes, bikes and a whole move.', icon: 'home' },
+  { t: 'parking', name: 'Driveway or car space', earn: '$150 to $450', tip: 'a month', blurb: 'Outer-suburb driveways earn $150 to $250. Covered city spaces earn far more.', icon: 'truck' },
+  { t: 'shed', name: 'Shed', earn: '$100 to $200', tip: 'a month', blurb: 'A tidy garden shed is perfect for tools, outdoor gear and market stock.', icon: 'box' },
+  { t: 'basement', name: 'Basement or attic', earn: '$110 to $250', tip: 'a month', blurb: 'Cool, dry spaces suit archives, wine and seasonal things.', icon: 'layers' },
+  { t: 'yard', name: 'Backyard or yard', earn: '$80 to $300', tip: 'a month', blurb: 'Room for a caravan, boat, trailer or building materials.', icon: 'pin' },
+  { t: 'warehouse', name: 'Warehouse or shed bay', earn: '$12 to $25', tip: 'per m² a month', blurb: 'Business space by the square metre or pallet.', icon: 'chart' },
+  { t: 'self-storage', name: 'Storage units', earn: '$80 to $350', tip: 'per unit a month', blurb: 'Rent out units, containers or cold rooms to local businesses.', icon: 'shield' },
+];
 export const priceLine = (l) => `${moneyP(l.price_cents)} / ${unitWord[l.unit]} / ${perWord[l.period]}`;
 export const todayISO = (add = 0) => { const d = new Date(Date.now() + add * 864e5); return d.toISOString().slice(0, 10); };
 export const debounce = (fn, ms = 250) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
@@ -145,7 +158,7 @@ export const magnetic = (root = document) => { if (matchMedia('(hover:none)').ma
 
 // ---------- listing card ----------
 export function listingCard(l, { demo = true } = {}) {
-  const img = l.images[0] || '/img/spaces/racking.jpg'; const on = state.wish.has(l.id);
+  const img = l.images[0] || typeImage(l.type, true); const on = state.wish.has(l.id);
   return html`<a class="lc rv" href="/space/${l.slug}" data-link data-id="${l.id}">
     <div class="im"><img src="${img}" alt="${l.title}" loading="lazy" decoding="async"><span class="glare"></span>
       <div class="tags">${l.featured ? html`<span class="tag">★ Featured</span>` : ''}${l.instant_book ? html`<span class="tag" style="background:rgba(255,107,44,.85)">⚡ Instant</span>` : ''}</div>

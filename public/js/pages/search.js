@@ -1,6 +1,6 @@
 import { html, raw, $, $$, api, state, listingCard, debounce, setTitle, loadLeaflet, moneyP, TYPE_LABEL, esc, tilt } from '../lib.js';
 
-const TYPES = [['', 'All'], ['warehouse', 'Warehouse'], ['pallet', 'Pallet'], ['self-storage', 'Self storage'], ['cold-storage', 'Cold'], ['container', 'Container'], ['yard', 'Yard'], ['pop-up', 'Pop-up']];
+const TYPES = [['', 'All'], ['garage', 'Garages'], ['spare-room', 'Spare rooms'], ['parking', 'Parking'], ['shed', 'Sheds'], ['basement', 'Basements'], ['yard', 'Yards'], ['warehouse', 'Warehouses'], ['pallet', 'Pallets'], ['self-storage', 'Self storage'], ['cold-storage', 'Cold'], ['container', 'Containers'], ['pop-up', 'Pop-up']];
 
 export default async function search({ main, query, onLeave, navigate }) {
   setTitle('Find warehouse and storage space');
@@ -8,7 +8,7 @@ export default async function search({ main, query, onLeave, navigate }) {
   main.innerHTML = html`
   <div class="search-top" style="margin-top:var(--hdr)"><div class="wrap"><div class="sbar">
     <input class="inp" id="q" type="search" placeholder="Suburb, city or postcode" value="${f.q}" aria-label="Search">
-    <div class="chips" id="types">${TYPES.map(([v, l]) => html`<button class="chip ${f.type === v ? 'on' : ''}" data-type="${v}">${l}</button>`)}</div>
+    <div class="chips scroll" id="types" style="max-width:100%;flex:1 1 100%;order:3">${TYPES.map(([v, l]) => html`<button class="chip ${f.type === v ? 'on' : ''}" data-type="${v}">${l}</button>`)}</div>
     <div style="flex:1"></div>
     <select id="state" aria-label="State"><option value="">Anywhere</option>${['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'ACT', 'NT'].map((s) => html`<option ${f.state === s ? 'selected' : ''}>${s}</option>`)}</select>
     <select id="max" aria-label="Max price per month"><option value="">Any price</option>${[[100, 'Up to $100 / mo'], [250, 'Up to $250 / mo'], [500, 'Up to $500 / mo'], [1000, 'Up to $1,000 / mo'], [5000, 'Up to $5,000 / mo']].map(([v, l]) => html`<option value="${v}" ${f.max == v ? 'selected' : ''}>${l}</option>`)}</select>

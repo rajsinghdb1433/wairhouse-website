@@ -198,7 +198,7 @@ function tx(fn) {
 const DEFAULT_SETTINGS = {
   brand_name: 'wAIRhouse',
   tagline: 'Space, on demand.',
-  site_description: 'wAIRhouse is the marketplace for warehouse and storage space. Find verified storage by the pallet, the square metre or the unit, or earn from space you are not using.',
+  site_description: 'wAIRhouse is the marketplace for spare space. Rent a warehouse, garage, spare room, shed or driveway by the day, week or month, or list the space you are not using and start earning.',
   contact_name: 'Raj Singh',
   contact_role: 'Founder',
   contact_phone: '0470368696',
@@ -219,8 +219,8 @@ const DEFAULT_SETTINGS = {
   // hero / marketing copy (editable)
   hero_eyebrow: 'The marketplace for space',
   hero_title: 'Store anything.\nAnywhere.',
-  hero_subtitle: 'Pallets, parcels, pop-up stock or a whole shed. Book verified warehouse and storage space by the day, week or month, with no long contracts.',
-  announcement: 'Founding owner offer: list free for 6 months. Zero commission.',
+  hero_subtitle: 'Warehouses, garages, spare rooms, sheds and driveways. Book verified space by the day, week or month, or list yours and start earning.',
+  announcement: 'Got a spare room, garage or shed? List it free and keep 100% of what you earn for 6 months.',
   announcement_enabled: '1',
   // switches
   registration_open: '1',

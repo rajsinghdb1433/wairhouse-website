@@ -20,7 +20,9 @@ function jar() { const c = {}; return { csrf: '', async req(m, p, body, { raw, h
     console.log('Public');
     const anon = jar(); let r = await anon.req('GET', '/api/site'); ok(r.s === 200 && r.j.settings.contact_phone === '0470368696', 'site settings carry contact phone');
     ok(/default-src 'self'/.test(r.h.get('content-security-policy')) && r.h.get('x-content-type-options') === 'nosniff' && !r.h.get('x-powered-by'), 'security headers present (CSP, nosniff, no x-powered-by)');
-    r = await anon.req('GET', '/api/listings'); ok(r.j.total >= 16, `sample listings visible (${r.j.total})`);
+    r = await anon.req('GET', '/api/listings'); ok(r.j.total >= 26, `sample listings visible (${r.j.total})`);
+    r = await anon.req('GET', '/api/listings?type=garage'); ok(r.j.total >= 2 && r.j.listings.every((x) => x.type === 'garage'), 'household types are searchable (garage)');
+    r = await anon.req('GET', '/api/listings?type=parking'); ok(r.j.total >= 2, 'car spaces and driveways are listed');
     r = await anon.req('GET', "/api/listings?q=' OR 1=1 --"); ok(r.s === 200 && r.j.total === 0, 'SQL injection attempt returns nothing');
     r = await anon.req('GET', '/api/pages/terms'); ok(r.j.page.body.includes('0470368696') && !r.j.page.body.includes('{{'), 'legal pages fill placeholders');
     r = await anon.req('GET', '/api/auth/captcha'); ok(r.j.mode === 'builtin' && r.j.svg.includes('<svg') && r.j.token, 'captcha challenge served');
@@ -41,7 +43,14 @@ function jar() { const c = {}; return { csrf: '', async req(m, p, body, { raw, h
     const db2 = new (require('node:sqlite').DatabaseSync)(env.DB_FILE); db2.prepare('UPDATE users SET failed_logins=0, locked_until=0').run(); db2.close();
 
     console.log('Marketplace flow');
-    r = await owner.req('POST', '/api/owner/listings', { title: '<script>alert(1)</script> Test Bay', type: 'warehouse', unit: 'pallet', period: 'week', price: 5, capacity: 50, suburb: 'Moorebank', state: 'NSW', postcode: '2170', min_days: 7, features: ['CCTV 24/7'], description: 'A very clean and secure test warehouse bay with forklift access.', instant_book: false }); ok(r.s === 200, 'owner creates listing'); const lid = r.j.listing.id;
+    const bodyL = { title: '<script>alert(1)</script> Test Bay', type: 'warehouse', unit: 'pallet', period: 'week', price: 5, capacity: 50, suburb: 'Moorebank', state: 'NSW', postcode: '2170', min_days: 7, features: ['CCTV 24/7'], description: 'A very clean and secure test warehouse bay with forklift access.', instant_book: false };
+    r = await owner.req('POST', '/api/owner/listings', bodyL); ok(r.s === 400 && /permission/i.test(r.j.error), 'listing needs the "I have permission to rent this" confirmation');
+    r = await owner.req('POST', '/api/owner/listings', { ...bodyL, confirm_rights: true }); ok(r.s === 200, 'owner creates listing'); const lid = r.j.listing.id;
+    const cust2 = jar(); r = await cust2.req('POST', '/api/auth/register', { name: 'Hana Household', email: 'hana@example.com', password: 'a household passphrase', role: 'customer', accept_terms: true }); cust2.csrf = r.j.csrf;
+    r = await cust2.req('POST', '/api/me/become-host', {}); ok(r.s === 400, 'become-host requires accepting the owner agreement');
+    r = await cust2.req('POST', '/api/me/become-host', { accept_terms: true }); ok(r.s === 200 && r.j.role === 'owner', 'a customer can start hosting with the same account');
+    r = await cust2.req('POST', '/api/owner/listings', { ...bodyL, title: 'Spare room storage in Fitzroy', type: 'spare-room', unit: 'unit', period: 'month', price: 160, capacity: 1, suburb: 'Fitzroy', state: 'VIC', postcode: '3065', description: 'A dry spare room on the ground floor for boxes.', confirm_rights: true }); ok(r.s === 200 && r.j.listing.type === 'spare-room', 'household host lists a spare room');
+    await cust2.req('DELETE', '/api/owner/listings/' + r.j.listing.id);
     const png = await sharp({ create: { width: 800, height: 600, channels: 3, background: '#335' } }).png().toBuffer(); const fd = new FormData(); fd.append('images', new Blob([png], { type: 'image/png' }), 'a.png');
     r = await owner.req('POST', `/api/owner/listings/${lid}/images`, fd); ok(r.s === 200 && r.j.images[0].endsWith('.webp'), 'photo uploaded and re-encoded to webp');
     const fake = new FormData(); fake.append('images', new Blob(['<?php echo 1;'], { type: 'image/png' }), 'evil.png'); r = await owner.req('POST', `/api/owner/listings/${lid}/images`, fake); ok(r.s === 200 && r.j.images.length === 1, 'fake image file is discarded');

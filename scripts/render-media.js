@@ -34,7 +34,7 @@ const server = http.createServer((req, res) => {
   await page.goto(base + '/__render'); await page.waitForFunction('window.ready === true', null, { timeout: 30000 });
   const out = path.join(PUB, 'img', 'spaces'); fs.mkdirSync(out, { recursive: true });
   if (what === 'all' || what === 'stills') {
-    for (const kind of ['racking', 'dock', 'cold', 'selfstorage', 'containers', 'hero']) {
+    for (const kind of (process.argv[3] ? process.argv[3].split(',') : ['racking', 'dock', 'cold', 'selfstorage', 'containers', 'hero', 'garage', 'room', 'basement', 'shed', 'parking'])) {
       const t0 = Date.now(); const url = await page.evaluate(([k, w, h]) => window.still(k, w, h), [kind, 1600, 1000]);
       const buf = Buffer.from(url.split(',')[1], 'base64');
       await sharp(buf).jpeg({ quality: 82, mozjpeg: true }).toFile(path.join(out, kind + '.jpg'));

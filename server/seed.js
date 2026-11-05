@@ -22,11 +22,17 @@ const FAQS = [
   ['owner', 'Do I have to accept every booking?', 'No. You see who, what and when, and choose to accept or decline. Or turn on Instant Book if you prefer.'],
   ['owner', 'What about insurance and damage?', 'You need public liability insurance for your site. Customers store goods at their own risk, and our rental terms set clear rules for care and access.'],
   ['owner', 'What kinds of space can I list?', 'Warehouse bays, racked pallet positions, self-storage units, shipping containers, cold rooms, yards and garages. If it is dry, safe and secure, it can earn.'],
+  ['owner', 'Can I rent out just part of my home, like a garage or spare room?', 'Yes. Garages, sheds, spare rooms, basements, attics, driveways and backyards are all welcome. Your exact address is hidden until you accept a booking, and customers cannot sleep or live in the space.'],
+  ['owner', 'Do I need a business or an ABN?', 'No. Plenty of hosts are everyday households renting out one space. Income can be taxable, so keep records and check with the ATO or an accountant.'],
+  ['owner', 'What if I rent my home?', 'Get your landlord\'s written permission first, and check any strata or council rules. You confirm this when you list.'],
+  ['owner', 'Will my home insurance cover it?', 'Often not. Tell your insurer you are renting out space. Some of our listings include goods insurance, and customers store goods at their own risk under the rental terms.'],
+  ['customer', 'Can I rent a garage, spare room or driveway?', 'Yes. Search by type and pick Garage, Spare room, Shed, Basement or Parking. Everyday hosts are reviewed by our team like everyone else.'],
   ['owner', 'How long does approval take?', 'Our team usually reviews new listings within one business day.'],
 ];
 
 const OWNERS = [
   ['Harbour Logistics Group', 'Harbour', 'Logistics'], ['Southern Cross Storage', 'Southern', 'Storage'], ['Apex Industrial Parks', 'Apex', 'Industrial'], ['Outback Yard Co', 'Outback', 'Yard'], ['Coastal Cold Chain', 'Coastal', 'Cold'],
+  ['Maya Chen', 'Maya', 'Chen'], ['Tom Becker', 'Tom', 'Becker'], ['Priya Nair', 'Priya', 'Nair'],
 ];
 // type, title, summary, suburb, state, postcode, lat, lng, unit, price, period, capacity, sqm, height, min_days, owner idx, features, img, instant, insured
 const L = [
@@ -45,6 +51,16 @@ const L = [
   ['self-storage', 'Derwent Park Storage Units', 'Secure, well-lit storage units 10 minutes from Hobart CBD.', 'Derwent Park', 'TAS', '7009', -42.83, 147.28, 'unit', 130, 'month', 35, 350, 3, 7, 1, ['24/7 access', 'CCTV 24/7', 'Alarmed units', 'Trolleys provided', 'Drive-up access'], 'selfstorage', 1, 0],
   ['warehouse', 'Hume Business Store', 'Tidy warehouse units in Canberra\'s Hume for small business and ecommerce stock.', 'Hume', 'ACT', '2620', -35.36, 149.17, 'sqm', 17, 'month', 300, 700, 6, 14, 2, ['Roller door', 'Office space', 'Fast Wi-Fi', 'Parcel pickup', 'Alarmed'], 'racking', 0, 0],
   ['pop-up', 'Hexham Pop-up Event Storage', 'Short-stay space for events, markets and seasonal stock. Book by the day.', 'Hexham', 'NSW', '2322', -32.83, 151.69, 'sqm', 45, 'day', 200, 400, 6, 1, 3, ['Daily booking', 'Loading dock', 'Forklift on site', 'Truck access', 'CCTV 24/7'], 'dock', 1, 0],
+  ['garage', 'Parramatta Lock-up Garage', 'Dry, secure single garage with a roller door and a power point. Ideal for furniture, tools and boxes.', 'Parramatta', 'NSW', '2150', -33.815, 151.0, 'unit', 260, 'month', 1, 18, 2.4, 14, 5, ['Lockable roller door', 'Dry and clean', 'Drive-in access', 'Power point', 'CCTV 24/7'], 'garage', 0, 0],
+  ['spare-room', 'Fitzroy Spare Room Storage', 'A spare room on the ground floor, kept dry and climate-stable. Great for boxes, bikes and seasonal gear.', 'Fitzroy', 'VIC', '3065', -37.8, 144.98, 'unit', 160, 'month', 1, 12, 2.6, 14, 5, ['Ground floor', 'Lockable door', 'Dry and clean', 'Climate-stable', 'Easy parking'], 'room', 0, 0],
+  ['shed', 'Penrith Backyard Shed', 'A tidy timber shed in a fenced backyard. Easy side-gate access for tools, outdoor gear and stock.', 'Penrith', 'NSW', '2750', -33.75, 150.69, 'unit', 120, 'month', 1, 8, 2.2, 14, 6, ['Fenced yard', 'Side-gate access', 'Lockable door', 'Dry and clean'], 'shed', 0, 0],
+  ['basement', 'Paddington Basement Cellar', 'Cool, dry basement storage with shelving. Perfect for wine, archives and household overflow.', 'Paddington', 'QLD', '4064', -27.46, 153.0, 'unit', 180, 'month', 1, 20, 2.3, 14, 7, ['Shelving provided', 'Cool and dry', 'Lockable door', 'Ground-level access'], 'basement', 0, 0],
+  ['parking', 'Bondi Junction Covered Car Space', 'Secure undercover car space two minutes from the station. Remote gate and CCTV.', 'Bondi Junction', 'NSW', '2022', -33.89, 151.25, 'unit', 380, 'month', 1, 12, 0, 7, 7, ['Undercover', 'Remote gate', 'CCTV 24/7', '24/7 access'], 'parking', 1, 0],
+  ['parking', 'Dandenong Driveway Car Space', 'Off-street driveway space in a quiet street, close to the train line. Fits a standard car or small van.', 'Dandenong', 'VIC', '3175', -37.99, 145.2, 'unit', 190, 'month', 1, 14, 0, 7, 6, ['Off-street', '24/7 access', 'Easy parking', 'Quiet street'], 'parking', 1, 0],
+  ['garage', 'Glenelg Double Garage', 'Large double garage near the beach with a tilt door. Room for a car and boxes, or a big storage run.', 'Glenelg', 'SA', '5045', -34.98, 138.51, 'unit', 220, 'month', 1, 30, 2.5, 14, 5, ['Lockable roller door', 'Power point', 'Dry and clean', 'Drive-in access'], 'garage', 0, 0],
+  ['spare-room', 'Fremantle Spare Bedroom', 'A bright spare bedroom for boxes and furniture. Ground floor, lockable, and walkable from the port.', 'Fremantle', 'WA', '6160', -32.05, 115.75, 'unit', 140, 'month', 1, 11, 2.5, 14, 7, ['Ground floor', 'Lockable door', 'Dry and clean', 'Easy parking'], 'room', 0, 0],
+  ['yard', 'Ipswich Backyard Hardstand', 'Fenced, level hardstand behind a house. Good for trailers, boats, caravans and materials.', 'Ipswich', 'QLD', '4305', -27.61, 152.76, 'sqm', 8, 'month', 150, 150, 0, 14, 6, ['Fenced yard', 'Hardstand', 'Truck access', 'Floodlit'], 'shed', 0, 0],
+  ['basement', 'Sandy Bay Attic Storage', 'A dry, floored attic with a pull-down ladder. Light items only: seasonal clothes, decorations and archives.', 'Sandy Bay', 'TAS', '7005', -42.9, 147.33, 'unit', 110, 'month', 1, 10, 1.8, 14, 7, ['Floored attic', 'Dry and clean', 'Light items only'], 'basement', 0, 0],
   ['cold-storage', 'Corio Wine and Cool Room', 'Cellar-grade cool room for wine, produce and boutique food brands.', 'Corio', 'VIC', '3214', -38.08, 144.37, 'pallet', 11.5, 'week', 60, 220, 4, 14, 4, ['Temperature monitored', 'Food grade', 'Backup power', 'Low vibration', 'Insured goods'], 'cold', 0, 1],
 ];
 const img = (k) => [`/img/spaces/${k}.jpg`];
@@ -70,7 +86,7 @@ function seed() {
   if (config.seedDemo && !q.get('SELECT 1 FROM listings')) {
     const ids = OWNERS.map(([company, first, last], i) => {
       const email = `${slugify(company)}@demo.wairhouse.example`;
-      const info = q.run('INSERT INTO users(email,name,company,password_hash,role,email_verified,created_at,bio) VALUES(?,?,?,?,?,1,?,?)', email, `${first} ${last}`, company, bcrypt.hashSync(randomToken(24), 4), 'owner', now() - (i + 2) * 86400_000 * 20, `${company} manages industrial space across Australia.`);
+      const info = q.run('INSERT INTO users(email,name,company,password_hash,role,email_verified,created_at,bio) VALUES(?,?,?,?,?,1,?,?)', email, `${first} ${last}`, i >= 5 ? '' : company, bcrypt.hashSync(randomToken(24), 4), 'owner', now() - (i + 2) * 86400_000 * 20, i >= 5 ? 'Local host sharing a little space.' : `${company} manages industrial space across Australia.`);
       return Number(info.lastInsertRowid);
     });
     for (const x of L) {
@@ -78,9 +94,9 @@ function seed() {
       const slug = slugify(`${title} ${suburb}`);
       q.run(`INSERT INTO listings(owner_id,slug,title,summary,description,type,address_line,suburb,state,postcode,lat,lng,unit,price_cents,period,capacity,total_sqm,height_m,min_days,features,images,access_hours,instant_book,insurance_included,status,featured,is_demo,created_at,updated_at)
         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'active',?,1,?,?)`,
-        ids[oi], slug, title, summary, `${summary}\n\nThis is a sample listing shown so you can explore how wAIRhouse works. ${title} offers ${capacity} ${unit === 'sqm' ? 'square metres' : unit + 's'} available, with a ${minDays}-day minimum booking. Access, handling and security are described in the feature list. Message the owner with any question before you book.`,
+        ids[oi], slug, title, summary, `${summary}\n\nThis is a sample listing shown so you can explore how wAIRhouse works. ${title} offers ${unit === 'sqm' ? capacity + ' square metres' : unit === 'unit' ? (capacity === 1 ? 'a single space' : capacity + ' spaces') : capacity + ' pallets'} available, with a ${minDays}-day minimum booking. Access, handling and security are described in the feature list. Message the owner with any question before you book.`,
         type, '', suburb, state, postcode, lat, lng, unit, Math.round(price * 100), period, capacity, sqm, height, minDays, JSON.stringify(features), JSON.stringify(img(im)),
-        type === 'self-storage' || type === 'pop-up' ? '24/7 with code' : 'Mon to Fri 7am to 5pm, Sat 8am to 12pm', instant, insured, x === L[0] || x === L[3] || x === L[7] ? 1 : 0, now(), now());
+        ['garage', 'spare-room', 'shed', 'basement'].includes(type) ? 'By arrangement with the host' : type === 'parking' ? '24/7' : type === 'self-storage' || type === 'pop-up' ? '24/7 with code' : 'Mon to Fri 7am to 5pm, Sat 8am to 12pm', instant, insured, x === L[0] || x === L[3] || x === L[7] || /Parramatta|Bondi|Fitzroy/.test(title) ? 1 : 0, now(), now());
     }
   }
 }

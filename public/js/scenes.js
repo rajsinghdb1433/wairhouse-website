@@ -206,10 +206,78 @@ function buildYard(scene) {
   for (let row = 0; row < 7; row++) for (let i = 0; i < 9; i++) { if (R() < 0.12) continue; const stack = 1 + Math.floor(R() * 3); for (let s = 0; s < stack; s++) { const m = new THREE.Mesh(new THREE.BoxGeometry(6.06, 2.59, 2.44), new THREE.MeshStandardMaterial({ color: colors[Math.floor(R() * colors.length)], map: ribs, roughness: 0.55, metalness: 0.45 })); m.position.set(-28 + i * 6.5, 1.3 + s * 2.6, -26 + row * 5.6 + (row > 3 ? 4 : 0)); scene.add(m); } }
   scene.add(new THREE.HemisphereLight(0xcfe4ff, 0x8a7560, 1.2)); const sun = new THREE.DirectionalLight(0xffc891, 3); sun.position.set(-40, 22, 30); scene.add(sun);
 }
+
+// ---------- household spaces: garage, spare room, basement, shed, driveway ----------
+const mat = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.8, metalness: 0, ...o });
+function bx(scene, w, h, d, color, x, y, z, o = {}) { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), o.mat || mat(color, o)); m.position.set(x, y, z); if (o.ry) m.rotation.y = o.ry; scene.add(m); return m; }
+const plankTex = (a = '#b88a5a', b = '#a67848') => canvasTex(512, 512, (g, w, h) => { g.fillStyle = a; g.fillRect(0, 0, w, h); const r = rng(4); for (let i = 0; i < 12; i++) { g.fillStyle = r() < 0.5 ? b : a; g.globalAlpha = 0.5; g.fillRect(0, i * 42.6, w, 40); g.globalAlpha = 0.25; g.fillStyle = '#000'; g.fillRect(0, i * 42.6 + 40, w, 2); } g.globalAlpha = 1; }, { repeat: [2, 2] });
+const brickTex = () => canvasTex(512, 512, (g, w, h) => { g.fillStyle = '#6e4a3d'; g.fillRect(0, 0, w, h); const r = rng(8); for (let y = 0; y < 16; y++) for (let x = 0; x < 8; x++) { g.fillStyle = `hsl(${12 + r() * 10} ${30 + r() * 15}% ${32 + r() * 14}%)`; g.fillRect(x * 64 + (y % 2) * 32 - 32, y * 32 + 2, 60, 28); } }, { repeat: [3, 1.5] });
+function cartons(scene, n, cx, cz, spread, seed, maxStack = 3) { const R = rng(seed); for (let i = 0; i < n; i++) { const s = 0.38 + R() * 0.3, st = Math.floor(R() * maxStack); bx(scene, s * 1.3, s, s, CARTON[Math.floor(R() * CARTON.length)], cx + (R() - 0.5) * spread, s / 2 + st * 0.4, cz + (R() - 0.5) * spread, { ry: R() * 0.6 }); } }
+function shelf(scene, x, z, ry, w = 1.2, levels = 4, fill = true, seed = 3) { const R = rng(seed); const g = new THREE.Group(); const m = mat(0x35508a, { metalness: 0.4, roughness: 0.5 }); for (const dx of [-w / 2, w / 2]) for (const dz of [-0.25, 0.25]) { const u = new THREE.Mesh(new THREE.BoxGeometry(0.05, 2.1, 0.05), m); u.position.set(dx, 1.05, dz); g.add(u); } for (let l = 0; l < levels; l++) { const b = new THREE.Mesh(new THREE.BoxGeometry(w + 0.05, 0.04, 0.55), mat(0xff6b2c, { roughness: 0.5 })); b.position.set(0, 0.15 + l * 0.52, 0); g.add(b); if (fill) for (let k = 0; k < 2; k++) if (R() < 0.85) { const sh = 0.3 + R() * 0.2, sw = 0.35 + R() * 0.25; const c = new THREE.Mesh(new THREE.BoxGeometry(sw, sh, 0.4), mat(CARTON[Math.floor(R() * CARTON.length)])); c.position.set(-w / 4 + k * (w / 2), 0.17 + l * 0.52 + sh / 2, 0); g.add(c); } } g.position.set(x, 0, z); g.rotation.y = ry; scene.add(g); }
+function room(scene, { w, h, d, wall, floor, ceil = 0xf2f4f8, floorMap = null, wallMap = null }) {
+  bx(scene, w, 0.1, d, floor, 0, -0.05, 0, floorMap ? { mat: new THREE.MeshStandardMaterial({ map: floorMap, roughness: 0.55 }) } : { roughness: 0.7 });
+  bx(scene, w, 0.1, d, ceil, 0, h + 0.05, 0, { roughness: 1 });
+  const wm = wallMap ? new THREE.MeshStandardMaterial({ map: wallMap, roughness: 0.95 }) : mat(wall);
+  bx(scene, 0.1, h, d, wall, -w / 2 - 0.05, h / 2, 0, { mat: wm }); bx(scene, 0.1, h, d, wall, w / 2 + 0.05, h / 2, 0, { mat: wm }); bx(scene, w, h, 0.1, wall, 0, h / 2, -d / 2 - 0.05, { mat: wm });
+}
+function buildHousehold(scene, kind) {
+  const R = rng(21);
+  if (kind === 'garage') {
+    scene.background = new THREE.Color(0x2a3350); room(scene, { w: 5, h: 2.6, d: 7, wall: 0xcdd4e2, floor: 0x7e8798 });
+    // roller door at the far end, slightly open with daylight
+    const slats = new THREE.InstancedMesh(new THREE.BoxGeometry(4.6, 0.12, 0.06), mat(0xe9edf4, { metalness: 0.2, roughness: 0.5 }), 17); const t = new THREE.Object3D(); for (let i = 0; i < 17; i++) { t.position.set(0, 0.55 + i * 0.12, -3.45); t.updateMatrix(); slats.setMatrixAt(i, t.matrix); } scene.add(slats);
+    const day = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 0.55), new THREE.MeshBasicMaterial({ color: 0xfff6e0 })); day.position.set(0, 0.28, -3.44); scene.add(day);
+    const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex(), color: 0xffe2b0, blending: THREE.AdditiveBlending, transparent: true, opacity: 0.8, depthWrite: false })); glow.scale.set(6, 2.2, 1); glow.position.set(0, 0.5, -3.1); scene.add(glow);
+    shelf(scene, -2.15, -0.8, Math.PI / 2, 2.2, 4, true, 5); shelf(scene, -2.15, -2.6, Math.PI / 2, 1.4, 4, true, 6); shelf(scene, 2.15, -1.2, -Math.PI / 2, 2.0, 4, true, 7);
+    cartons(scene, 12, 1.7, 0.6, 1.0, 31, 4); bx(scene, 0.9, 0.55, 0.5, 0xff6b2c, -1.6, 0.28, 0.2); bx(scene, 0.9, 0.5, 0.5, 0x3e6fb0, -1.6, 0.8, 0.2);
+    const lamp = new THREE.PointLight(0xfff0d8, 9, 12, 1.6); lamp.position.set(0, 2.3, 0); scene.add(lamp); scene.add(new THREE.HemisphereLight(0xe6edff, 0x5a6378, 0.85)); return { pos: [0.5, 1.45, 3.3], look: [-0.3, 1.0, -3], fov: 64 };
+  }
+  if (kind === 'room') {
+    scene.background = new THREE.Color(0xdfe6f2); room(scene, { w: 4, h: 2.5, d: 4.6, wall: 0xf1e8de, floor: 0xb88a5a, floorMap: plankTex() });
+    const win = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.3), new THREE.MeshBasicMaterial({ color: 0xeaf6ff })); win.position.set(0.4, 1.45, -2.29); scene.add(win);
+    for (const [x, y, w2, h2] of [[0.4, 1.45, 1.6, 0.06], [0.4, 0.8, 1.6, 0.08], [0.4, 2.1, 1.6, 0.06], [-0.4, 1.45, 0.06, 1.4], [1.2, 1.45, 0.06, 1.4], [0.4, 1.45, 0.04, 1.3]]) bx(scene, w2, h2, 0.05, 0xffffff, x, y, -2.27);
+    const sun = new THREE.SpotLight(0xfff1d6, 60, 12, 0.7, 0.6, 1); sun.position.set(0.4, 2.1, -2.2); sun.target.position.set(-0.2, 0, 1); scene.add(sun, sun.target);
+    cartons(scene, 12, -1.2, -1.4, 1.1, 14, 4); bx(scene, 0.8, 1.7, 0.35, 0x8a6a45, 1.6, 0.85, -1.9); for (let i = 0; i < 5; i++) bx(scene, 0.65, 0.04, 0.3, 0xa87c4e, 1.6, 0.35 + i * 0.32, -1.9); bx(scene, 0.5, 0.7, 0.2, 0x2f5fa0, 1.0, 0.35, 1.2, { ry: 0.3 }); bx(scene, 0.45, 0.3, 0.7, 0x3a4560, -1.4, 0.15, 0.2);
+    scene.add(new THREE.HemisphereLight(0xffffff, 0xcdbfa8, 2.0)); const l = new THREE.PointLight(0xfff0d8, 14, 9, 1.5); l.position.set(0, 2.2, 0); scene.add(l); return { pos: [1.55, 1.5, 2.15], look: [-0.3, 1.0, -1.2], fov: 72 };
+  }
+  if (kind === 'basement') {
+    scene.background = new THREE.Color(0x1b1410); room(scene, { w: 5, h: 2.3, d: 6.5, wall: 0x8a5e4d, floor: 0x6f6a66, ceil: 0x2a2320, wallMap: brickTex() });
+    for (let i = 0; i < 6; i++) bx(scene, 5.1, 0.18, 0.14, 0x5a3a24, 0, 2.12, 2.6 - i * 1.15);
+    const win = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.35), new THREE.MeshBasicMaterial({ color: 0xcfe6ff })); win.position.set(1.0, 1.95, -3.24); scene.add(win);
+    shelf(scene, -2.1, -0.4, Math.PI / 2, 2.2, 4, true, 8); shelf(scene, 2.1, -1.4, -Math.PI / 2, 2.2, 4, true, 9);
+    for (let i = 0; i < 6; i++) { bx(scene, 1.15, 0.12, 1.15, 0x8a6a3f, -0.3 + (i % 2) * 0.1, 0.06, 2.0 - i * 0.9 * 0 - (i % 3) * 1.2); } cartons(scene, 9, 0, 1.2, 1.8, 77, 3);
+    const lamp = new THREE.PointLight(0xffc680, 26, 10, 1.4); lamp.position.set(0, 2.0, 0.5); scene.add(lamp); const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.08, 12, 12), new THREE.MeshBasicMaterial({ color: 0xfff1cf })); bulb.position.set(0, 2.1, 0.5); scene.add(bulb); scene.add(new THREE.HemisphereLight(0xffddb0, 0x201510, 0.9)); return { pos: [0.2, 1.45, 3.05], look: [0, 1.0, -3], fov: 68 };
+  }
+  if (kind === 'shed') {
+    const sky = canvasTex(8, 256, (g, w, h) => { const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#6fb2ee'); gr.addColorStop(1, '#e8f3ff'); g.fillStyle = gr; g.fillRect(0, 0, w, h); }); scene.background = sky; scene.fog = new THREE.Fog(0xdceaf8, 20, 60);
+    const grass = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), new THREE.MeshStandardMaterial({ map: canvasTex(256, 256, (g, w, h) => { g.fillStyle = '#5c9b4a'; g.fillRect(0, 0, w, h); const r = rng(3); for (let i = 0; i < 9000; i++) { g.fillStyle = `hsl(${95 + r() * 30} ${40 + r() * 20}% ${28 + r() * 20}%)`; g.fillRect(r() * w, r() * h, 2, 4); } }, { repeat: [14, 14] }), roughness: 1 })); grass.rotation.x = -Math.PI / 2; scene.add(grass);
+    const wood = new THREE.MeshStandardMaterial({ map: canvasTex(128, 256, (g, w, h) => { g.fillStyle = '#8fa8b8'; g.fillRect(0, 0, w, h); for (let x = 0; x < w; x += 16) { g.fillStyle = 'rgba(0,0,0,.22)'; g.fillRect(x, 0, 2, h); } }), roughness: 0.9 });
+    bx(scene, 3.2, 2.2, 2.2, 0, 0, 1.1, 0, { mat: wood });
+    const roof = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 2.0, 1.0, 4, 1), mat(0x4a4f5c)); roof.rotation.y = Math.PI / 4; roof.scale.set(1.15, 1, 0.82); roof.position.set(0, 2.7, 0); scene.add(roof);
+    bx(scene, 1.2, 1.9, 0.08, 0x1c2230, 0, 1.0, 1.12); // open doorway (dark interior)
+    cartons(scene, 5, 0, 0.7, 0.7, 5, 2); const door = bx(scene, 0.6, 1.9, 0.06, 0xd9dde6, 0.9, 1.0, 1.55, { ry: -1.0 });
+    for (let i = 0; i < 18; i++) bx(scene, 0.06, 0.9, 0.04, 0xf2f2f2, -6 + i * 0.7, 0.45, -3);
+    const tree = bx(scene, 0.3, 2.4, 0.3, 0x6b4a30, -4.2, 1.2, -1.2); const crown = new THREE.Mesh(new THREE.SphereGeometry(1.6, 20, 16), mat(0x3e8a3a)); crown.position.set(-4.2, 3.4, -1.2); scene.add(crown);
+    bx(scene, 1.1, 0.6, 0.5, 0xff6b2c, 2.6, 0.3, 1.8); bx(scene, 0.8, 0.4, 0.5, 0x3e6fb0, 2.6, 0.8, 1.8);
+    scene.add(new THREE.HemisphereLight(0xd9ecff, 0x7a9a5a, 1.7)); const sun = new THREE.DirectionalLight(0xfff1d6, 3); sun.position.set(6, 8, 7); scene.add(sun); const inside = new THREE.PointLight(0xffd9a0, 10, 6); inside.position.set(0, 1.3, 1.0); scene.add(inside); return { pos: [3.6, 1.7, 5.6], look: [0, 1.1, 0], fov: 52 };
+  }
+  // parking: driveway + carport
+  const sky = canvasTex(8, 256, (g, w, h) => { const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#4f86c6'); gr.addColorStop(1, '#f6e0c4'); g.fillStyle = gr; g.fillRect(0, 0, w, h); }); scene.background = sky; scene.fog = new THREE.Fog(0xf0d9bd, 25, 70);
+  bx(scene, 60, 0.1, 60, 0x6b9a58, 0, -0.06, 0, { roughness: 1 }); bx(scene, 7, 0.12, 16, 0x9ba3b3, 0, 0, 1, { roughness: 0.9 }); bx(scene, 40, 0.12, 5, 0x4a4f5c, 0, -0.01, 11, { roughness: 0.95 });
+  for (let i = 0; i < 9; i++) bx(scene, 0.1, 0.01, 1.4, 0xf2f2f2, 0, 0.07, 9.2 - i * 0 + 0, {}); bx(scene, 0.1, 0.02, 14, 0xf2f2f2, 0.0, 0.08, 1);
+  const house = new THREE.Mesh(new THREE.BoxGeometry(14, 5, 6), new THREE.MeshStandardMaterial({ map: brickTex(), roughness: 0.9 })); house.position.set(0, 2.5, -8.5); scene.add(house); bx(scene, 14.6, 0.5, 6.6, 0x4a4f5c, 0, 5.3, -8.5);
+  for (const x of [-3.2, 3.2]) bx(scene, 0.18, 3.1, 0.18, 0xf2f2f2, x, 1.55, -1.6); bx(scene, 7.2, 0.2, 7, 0x59606e, 0, 3.15, -4.6); bx(scene, 7, 0.1, 0.1, 0xffffff, 0, 3.0, -1.6);
+  // a parked car on the left bay
+  const car = new THREE.Group(); const body = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.6, 4.2), mat(0x2f5fa0, { metalness: 0.5, roughness: 0.35 })); body.position.set(0, 0.55, 0); car.add(body); const cab = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.55, 2.2), mat(0x9fc4e8, { metalness: 0.6, roughness: 0.1 })); cab.position.set(0, 1.1, -0.1); car.add(cab); for (const [x, z] of [[-0.9, 1.3], [0.9, 1.3], [-0.9, -1.3], [0.9, -1.3]]) { const wh = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, 0.26, 18), mat(0x15181f)); wh.rotation.z = Math.PI / 2; wh.position.set(x, 0.34, z); car.add(wh); } car.position.set(-1.7, 0, -3.8); scene.add(car);
+  // painted bay outline for the free space
+  for (const [w2, d2, x, z] of [[2.5, 0.08, 1.8, -1.6], [2.5, 0.08, 1.8, -6.4], [0.08, 4.8, 0.6, -4.0], [0.08, 4.8, 3.0, -4.0]]) bx(scene, w2, 0.02, d2, 0xff6b2c, x, 0.08, z, { emissive: 0xff3c00, emissiveIntensity: 0.3 });
+  scene.add(new THREE.HemisphereLight(0xdfeeff, 0x8a8f7a, 1.6)); const sun = new THREE.DirectionalLight(0xffe2b8, 3); sun.position.set(-8, 10, 12); scene.add(sun); return { pos: [4.4, 2.4, 10.5], look: [0, 1.3, -3.5], fov: 55 };
+}
 export function stillScene(canvas, kind, w, h) {
   const renderer = makeRenderer(canvas, { still: true }); renderer.setSize(w, h, false); const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(kind === 'selfstorage' ? 62 : 56, w / h, 0.1, 500); let hall = null;
-  if (kind === 'selfstorage') { buildCorridor(scene); camera.position.set(0.4, 1.55, 16); camera.lookAt(0, 1.3, -30); renderer.toneMappingExposure = 0.95; }
+  if (['garage', 'room', 'basement', 'shed', 'parking'].includes(kind)) { const c = buildHousehold(scene, kind); camera.position.set(...c.pos); camera.lookAt(...c.look); camera.fov = c.fov; renderer.toneMappingExposure = 1.05; }
+  else if (kind === 'selfstorage') { buildCorridor(scene); camera.position.set(0.4, 1.55, 16); camera.lookAt(0, 1.3, -30); renderer.toneMappingExposure = 0.95; }
   else if (kind === 'containers') { buildYard(scene); camera.position.set(34, 16, 38); camera.lookAt(-4, 1.5, -6); camera.fov = 48; renderer.toneMappingExposure = 1.0; }
   else {
     const cold = kind === 'cold'; scene.background = new THREE.Color(cold ? 0x0b1830 : 0x070b14); scene.fog = new THREE.Fog(cold ? 0x0b1830 : 0x070b14, 26, 130); hall = buildHall(scene, { cold });

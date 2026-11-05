@@ -44,6 +44,18 @@ r.get('/export', (req, res) => {
   res.json({ profile: publicUser(u), bookings: q.all('SELECT * FROM bookings WHERE customer_id = ? OR owner_id = ?', u.id, u.id), messages: q.all('SELECT * FROM messages WHERE customer_id = ? OR owner_id = ?', u.id, u.id), reviews: q.all('SELECT * FROM reviews WHERE customer_id = ?', u.id), consents: q.all('SELECT doc,version,created_at FROM consents WHERE user_id = ?', u.id) });
 });
 
+// Any customer can start hosting with the same account (no second sign-up).
+r.post('/become-host', (req, res) => {
+  if (req.user.role !== 'customer') return res.json({ ok: true, role: req.user.role });
+  if (getSetting('owner_registration_open') !== '1') return res.status(403).json({ error: 'Hosting sign-ups are paused right now.' });
+  if (!req.body?.accept_terms) return res.status(400).json({ error: 'Please accept the Owner Agreement.' });
+  q.run("UPDATE users SET role = 'owner' WHERE id = ?", req.user.id);
+  const pg = q.get('SELECT version FROM pages WHERE slug = ?', 'host-agreement');
+  if (pg) q.run('INSERT INTO consents(user_id,doc,version,ip,created_at) VALUES(?,?,?,?,?)', req.user.id, 'host-agreement', pg.version, ip(req), now());
+  audit(req.user.id, 'became_host', '', ip(req));
+  res.json({ ok: true, role: 'owner' });
+});
+
 // ---- wishlist ----
 r.get('/wishlist', (req, res) => {
   const rows = q.all("SELECT l.* FROM wishlist w JOIN listings l ON l.id = w.listing_id WHERE w.user_id = ? AND l.status='active' ORDER BY w.created_at DESC", req.user.id);

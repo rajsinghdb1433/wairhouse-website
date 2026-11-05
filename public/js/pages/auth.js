@@ -30,11 +30,11 @@ async function login({ main, query, onLeave }) {
 function strength(pw) { let s = 0; if (pw.length >= 10) s++; if (pw.length >= 14) s++; if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) s++; if (/\d/.test(pw)) s++; if (/[^\w]/.test(pw)) s++; return s; }
 async function register({ main, query, onLeave, invite, forceOwner }) {
   setTitle('Create your account'); const s = state.site.settings; const cap = s.captcha_on_register === '0' ? raw('') : await captchaHtml('cap'); let role = forceOwner || query.role === 'owner' ? 'owner' : 'customer';
-  main.innerHTML = html`<div class="auth">${art(role === 'owner' ? 'Turn space into income.' : 'Space, on demand.', role === 'owner' ? 'List free. Set your price. We bring the customers.' : 'Find verified storage in minutes. No long contracts.')}<div class="auth-form"><div class="auth-card"><h1>${forceOwner ? 'List your space' : 'Create account'}</h1><p class="muted" style="margin-bottom:22px">Already have one? <a class="link" href="/login" data-link>Sign in</a></p>
+  main.innerHTML = html`<div class="auth">${art(role === 'owner' ? 'Turn space into income.' : 'Space, on demand.', role === 'owner' ? 'Garage, spare room, shed, driveway or warehouse. List free, set your price, we bring the customers.' : 'Find verified storage in minutes. No long contracts.')}<div class="auth-form"><div class="auth-card"><h1>${forceOwner ? 'List your space' : 'Create account'}</h1><p class="muted" style="margin-bottom:22px">Already have one? <a class="link" href="/login" data-link>Sign in</a></p>
     ${forceOwner ? '' : html`<div class="seg" id="seg"><button type="button" data-r="customer" class="${role === 'customer' ? 'on' : ''}">I need space</button><button type="button" data-r="owner" class="${role === 'owner' ? 'on' : ''}">I have space</button></div>`}
     <form id="f" novalidate>${invite ? html`<div class="okmsg">Welcome${invite.contact_name ? ', ' + invite.contact_name : ''}! We saved a spot for <b>${invite.company}</b>.</div>` : ''}
       <div class="field"><label for="n">Full name</label><input id="n" name="name" autocomplete="name" required></div><div class="field"><label for="e">Email</label><input id="e" name="email" type="email" autocomplete="email" required value="${invite?.email || ''}"></div>
-      <div class="row"><div class="field"><label for="ph">Phone <span class="muted">(optional)</span></label><input id="ph" name="phone" autocomplete="tel"></div><div class="field ${role === 'owner' ? '' : 'hide'}" id="cof"><label for="co">Business name</label><input id="co" name="company" autocomplete="organization" value="${invite?.company || ''}"></div></div>
+      <div class="row"><div class="field"><label for="ph">Phone <span class="muted">(optional)</span></label><input id="ph" name="phone" autocomplete="tel"></div><div class="field ${role === 'owner' ? '' : 'hide'}" id="cof"><label for="co">Business name <span class="muted">(optional)</span></label><input id="co" name="company" autocomplete="organization" value="${invite?.company || ''}"></div></div>
       <div class="field"><label for="p">Password</label><input id="p" name="password" type="password" autocomplete="new-password" minlength="10" required><div class="hint" id="pw">At least 10 characters. A short phrase works great.</div></div>
       <input class="hp" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
       <label class="check"><input type="checkbox" name="accept_terms" required><span>I agree to the <a class="link" href="/legal/terms" target="_blank">Terms</a> and <a class="link" href="/legal/privacy" target="_blank">Privacy Policy</a>${role === 'owner' ? html`, and the <a class="link" href="/legal/host-agreement" target="_blank">Owner Agreement</a>` : ''}.</span></label>
@@ -50,9 +50,19 @@ async function register({ main, query, onLeave, invite, forceOwner }) {
 }
 // /host/join?invite=TOKEN — owner onboarding, pre-filled from an outreach email
 export async function joinPage(c) {
+  const dest = '/owner/listings/new' + (c.query.type ? '?type=' + encodeURIComponent(c.query.type) : '');
+  if (state.user) {
+    if (state.user.role !== 'customer') return navigate(dest, { replace: true });
+    return becomeHost(c, dest); // a customer can start hosting with the same account
+  }
   let invite = null; if (c.query.invite) { try { invite = { ...(await api('/invite/' + encodeURIComponent(c.query.invite))).invite, token: c.query.invite }; } catch (_) { /* ignore bad token */ } }
-  if (state.user) return navigate(home(state.user), { replace: true });
-  await register({ ...c, invite, forceOwner: true });
+  await register({ ...c, query: { ...c.query, next: dest }, invite, forceOwner: true });
+}
+async function becomeHost({ main, onLeave }, dest) {
+  setTitle('Start hosting');
+  main.innerHTML = html`<div class="auth">${art('Turn space into income.', 'Your account can rent space and host space. No second sign-up.')}<div class="auth-form"><div class="auth-card"><h1>Start hosting</h1><p class="muted" style="margin-bottom:22px">Hi ${state.user.name.split(' ')[0]}. One tick and you can list your garage, spare room, shed, driveway or warehouse.</p><form id="f" novalidate>
+    <label class="check"><input type="checkbox" name="accept_terms" required><span>I agree to the <a class="link" href="/legal/host-agreement" target="_blank">Owner Agreement</a>, including the rules for home spaces.</span></label><div class="err-slot"></div><button class="btn btn-p btn-lg btn-block" type="submit">Start hosting</button></form></div></div></div>`.s; withArt(onLeave);
+  $('#f').addEventListener('submit', (e) => { e.preventDefault(); const f = e.target; submitForm(f, async () => { await api('/me/become-host', { method: 'POST', body: { accept_terms: !!formData(f).accept_terms } }); state.user.role = 'owner'; toast('Hosting is on. Add your first space.', 'ok'); navigate(dest); }); });
 }
 
 async function forgot({ main, onLeave }) {

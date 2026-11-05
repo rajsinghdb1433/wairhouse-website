@@ -1,6 +1,6 @@
 # wAIRhouse
 
-**The marketplace for warehouse and storage space. Airbnb, but for pallets, units, containers and sheds.**
+**The marketplace for spare space. Airbnb, but for stuff: garages, spare rooms, sheds, driveways, units, containers and warehouses.** Anyone can host, from a household with one empty garage to a warehouse operator.
 Animated 3D front end, three portals (Customer, Owner, Admin), a Node.js backend, and everything needed to go live.
 
 Run it locally:

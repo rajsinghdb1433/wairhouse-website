@@ -1,6 +1,8 @@
 import { html, raw, $, $$, api, state, icon, FEATURE_ICON, listingCard, setTitle, loadLeaflet, moneyP, money, TYPE_LABEL, unitWord, perWord, todayISO, stars, date, modal, toast, esc, debounce, tilt, formData, submitForm, captchaHtml, captchaMount, captchaValues } from '../lib.js';
 import { spaceViz } from '../scenes.js';
 import { navigate } from '../app.js';
+import { typeImage } from '../lib.js';
+const HOME_TYPES = ['garage', 'shed', 'spare-room', 'basement', 'parking', 'yard'];
 
 export default async function space({ main, params, onLeave }) {
   let data; try { data = await api('/listings/' + params[0]); } catch (e) {
@@ -17,15 +19,16 @@ export default async function space({ main, params, onLeave }) {
         <h1 class="h-lg" style="font-size:clamp(34px,5vw,64px)">${l.title}</h1>
         <p class="muted" style="margin-top:10px;font-size:18px">${l.suburb}, ${l.state} ${l.postcode} · ${l.rating_count ? html`<span class="stars">★</span> <b style="color:#fff">${l.rating_avg}</b> (${l.rating_count} review${l.rating_count > 1 ? 's' : ''})` : 'New on wAIRhouse'}</p></div>
       <div style="display:flex;gap:10px"><button class="btn btn-g btn-sm" id="share">Share</button><button class="btn btn-g btn-sm" id="wish">${icon('heart')} <span>${wished ? 'Saved' : 'Save'}</span></button></div></div>
-    <div class="gallery rv">${imgs.slice(0, 3).map((u, i) => html`<img src="${u}" alt="${l.title} photo ${i + 1}" ${i ? 'loading="lazy"' : 'fetchpriority="high"'}>`)}${imgs.length < 2 ? html`<img src="/img/spaces/${l.type === 'self-storage' ? 'selfstorage' : l.type === 'container' ? 'containers' : l.type === 'cold-storage' ? 'cold' : 'dock'}.jpg" alt="Similar space" loading="lazy"><img src="/img/spaces/racking.jpg" alt="Similar space" loading="lazy">` : ''}</div>
+    <div class="gallery rv">${imgs.slice(0, 3).map((u, i) => html`<img src="${u}" alt="${l.title} photo ${i + 1}" ${i ? 'loading="lazy"' : 'fetchpriority="high"'}>`)}${imgs.length < 2 ? html`<img src="${typeImage(l.type)}" alt="${TYPE_LABEL[l.type] || 'Space'} (illustration)" loading="lazy"><img src="${typeImage(l.type === 'warehouse' ? 'pallet' : l.type)}" alt="${TYPE_LABEL[l.type] || 'Space'} (illustration)" loading="lazy">` : ''}</div>
     <div class="detail"><div>
       <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:26px;border-bottom:1px solid var(--line)"><div><h2 class="h-md" style="font-size:26px">Hosted by ${owner.name}</h2><p class="muted">${owner.company ? owner.company + ' · ' : ''}On wAIRhouse since ${owner.since}</p></div><div class="avatar" style="width:56px;height:56px;font-size:22px">${owner.name[0]}</div></div>
       <div class="grid g3" style="margin:28px 0;gap:14px">${[[l.total_sqm ? Math.round(l.total_sqm).toLocaleString('en-AU') + ' m²' : '—', 'Total area'], [l.height_m ? l.height_m + ' m' : '—', 'Clearance'], [l.min_days + (l.min_days > 1 ? ' days' : ' day'), 'Minimum stay']].map(([a, b]) => html`<div class="card" style="padding:20px"><div class="bignum" style="font-size:34px">${a}</div><p style="font-size:14px">${b}</p></div>`)}</div>
+      ${HOME_TYPES.includes(l.type) ? html`<div class="card" style="margin-bottom:26px;padding:20px 24px;display:flex;gap:16px;align-items:center"><div class="ico" style="margin:0;flex:none">${icon('home')}</div><p style="font-size:15px">This is a local host's own space. Their exact address is shared once they accept your booking, and the rental terms ban overnight stays and dangerous goods.</p></div>` : ''}
       <p style="font-size:18px;color:#c9d5ec;white-space:pre-line">${l.description}</p>
       <h2 class="h-md" style="margin:46px 0 22px;font-size:28px">What this place offers</h2>
       <div class="feat">${l.features.map((f) => html`<div>${icon(FEATURE_ICON(f))}${f}</div>`)}${l.access_hours ? html`<div>${icon('clock')}Access: ${l.access_hours}</div>` : ''}</div>
-      <h2 class="h-md" style="margin:56px 0 12px;font-size:28px">Will it fit? Try the 3D planner</h2><p class="muted" style="margin-bottom:18px">Slide to see how much of this space your goods would take. Drag the room to look around.</p>
-      <div class="viz"><canvas id="vz" role="img" aria-label="3D space planner"></canvas><span class="mono lbl">3D space planner</span><div class="ctl"><span class="muted" style="font-weight:700;min-width:110px" id="vl">40% of space</span><input type="range" id="vr" min="5" max="100" value="40" aria-label="How full"></div></div>
+      <div ${l.type === 'parking' ? 'hidden' : ''}><h2 class="h-md" style="margin:56px 0 12px;font-size:28px">Will it fit? Try the 3D planner</h2><p class="muted" style="margin-bottom:18px">Slide to see how much of this space your goods would take. Drag the room to look around.</p>
+      <div class="viz"><canvas id="vz" role="img" aria-label="3D space planner"></canvas><span class="mono lbl">3D space planner</span><div class="ctl"><span class="muted" style="font-weight:700;min-width:110px" id="vl">40% of space</span><input type="range" id="vr" min="5" max="100" value="40" aria-label="How full"></div></div></div>
       <h2 class="h-md" style="margin:56px 0 22px;font-size:28px">Where you will be</h2>
       <div id="dmap" style="height:320px;border-radius:22px;overflow:hidden;border:1px solid var(--line)"></div><p class="muted" style="margin-top:12px;font-size:14px">The exact address is shared once your booking is confirmed.</p>
       <h2 class="h-md" style="margin:56px 0 10px;font-size:28px">${reviews.length ? `${l.rating_avg} ★ · ${l.rating_count} review${l.rating_count > 1 ? 's' : ''}` : 'Reviews'}</h2>
@@ -33,7 +36,7 @@ export default async function space({ main, params, onLeave }) {
     </div>
     <aside class="book" id="book"><div class="price">${moneyP(l.price_cents)} <small>/ ${unitWord[l.unit]} / ${perWord[l.period]}</small></div>
       <form id="bf" style="margin-top:20px"><div class="row"><div class="field"><label for="sd">Start</label><input type="date" id="sd" name="start_date" min="${todayISO()}" value="${startDefault}" required></div><div class="field"><label for="ed">End</label><input type="date" id="ed" name="end_date" min="${todayISO(1)}" value="${endDefault}" required></div></div>
-        <div class="field"><label for="qty">How many ${l.unit === 'sqm' ? 'square metres' : l.unit + 's'}? <span class="muted">(up to ${l.capacity.toLocaleString('en-AU')})</span></label><input type="number" id="qty" name="quantity" min="1" max="${l.capacity}" value="${Math.min(l.capacity, l.unit === 'pallet' ? 4 : l.unit === 'unit' ? 1 : 20)}" required></div>
+        <div class="field"><label for="qty">How many ${l.unit === 'sqm' ? 'square metres' : l.unit === 'unit' ? 'spaces' : l.unit + 's'}? <span class="muted">(up to ${l.capacity.toLocaleString('en-AU')})</span></label><input type="number" id="qty" name="quantity" min="1" max="${l.capacity}" value="${Math.min(l.capacity, l.unit === 'pallet' ? 4 : l.unit === 'unit' ? 1 : 20)}" required></div>
         <div class="field"><label for="gd">What are you storing?</label><input id="gd" name="goods" maxlength="300" placeholder="e.g. 4 pallets of packaged tea" required></div>
         <div class="field"><label for="mg">Message to owner <span class="muted">(optional)</span></label><textarea id="mg" name="message" style="min-height:80px" maxlength="1000"></textarea></div>
         <div id="qt" aria-live="polite"></div>
@@ -46,7 +49,7 @@ export default async function space({ main, params, onLeave }) {
   </div>`.s;
 
   // 3D planner
-  try { const viz = spaceViz($('#vz'), { sqm: l.total_sqm || l.capacity, height: l.height_m || 5, fill: 0.4 }); onLeave(() => viz.dispose()); $('#vr').addEventListener('input', (e) => { viz.setFill(e.target.value / 100); $('#vl').textContent = e.target.value + '% of space'; }); } catch (_) { $('.viz').style.display = 'none'; }
+  if (l.type !== 'parking') try { const viz = spaceViz($('#vz'), { sqm: l.total_sqm || l.capacity, height: l.height_m || 5, fill: 0.4 }); onLeave(() => viz.dispose()); $('#vr').addEventListener('input', (e) => { viz.setFill(e.target.value / 100); $('#vl').textContent = e.target.value + '% of space'; }); } catch (_) { $('.viz').style.display = 'none'; }
   // map
   loadLeaflet().then((L) => { if (l.lat == null) return $('#dmap').remove(); const m = L.map('dmap', { scrollWheelZoom: false }).setView([l.lat, l.lng], 12); L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '© OpenStreetMap' }).addTo(m); L.circle([l.lat, l.lng], { radius: 1200, color: '#ff6b2c', fillColor: '#ff6b2c', fillOpacity: 0.18, weight: 2 }).addTo(m); onLeave(() => m.remove()); }).catch(() => $('#dmap')?.remove());
 

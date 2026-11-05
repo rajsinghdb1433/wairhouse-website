@@ -1,5 +1,7 @@
 import { html, raw, $, $$, api, state, icon, md, setTitle, toast, esc, money, submitForm, formData, captchaHtml, captchaMount, captchaValues, reveal, splitWords, countUp } from '../lib.js';
 import { boxesScene } from '../scenes.js';
+import { TYPE_TILES, typeImage, TYPE_LABEL } from '../lib.js';
+import { calcHtml, wireCalc } from './calc.js';
 
 export default async function info(c) {
   const { main, path } = c;
@@ -19,33 +21,38 @@ export async function notFound({ main }) {
 }
 
 // ---------- host (owner landing, pricing, benefits) ----------
-async function host({ main, onLeave }) {
-  setTitle('Earn from your spare warehouse space');
+async function host({ main, onLeave, query }) {
+  setTitle('Earn from your spare space');
+  const FIRST = { garage: 0, shed: 0, 'spare-room': 1, basement: 1, parking: 2, yard: 2, warehouse: 3, 'self-storage': 3, pallet: 4 }[query?.type] ?? 0;
   const s = state.site.settings; const f = state.site.founding; const faqs = (await api('/faqs?audience=owner').catch(() => ({ faqs: [] }))).faqs;
   const left = Math.max(0, f.slots - f.taken);
   main.innerHTML = html`
   <section class="sec" style="padding-top:calc(var(--hdr) + 90px);overflow:hidden"><div class="cta-band" style="position:absolute;inset:0;border-radius:0;border:0;background:radial-gradient(70% 60% at 80% 20%,rgba(255,107,44,.28),transparent 60%),radial-gradient(60% 60% at 10% 90%,rgba(79,180,255,.2),transparent 60%)"><canvas id="hb" aria-hidden="true"></canvas></div>
-    <div class="wrap" style="position:relative"><span class="mono eyebrow">For warehouse and storage owners</span><h1 class="h-xl" data-split style="max-width:11ch">Your empty space is someone's <span class="grad-a">missing</span> space.</h1>
-      <p class="lede rv" style="margin:30px 0 38px">List free. Set your price. We bring verified customers and handle the booking, messages and payments.</p>
+    <div class="wrap" style="position:relative"><span class="mono eyebrow">For anyone with space to spare</span><h1 class="h-xl" data-split style="max-width:12ch">Your empty space is someone's <span class="grad-a">missing</span> space.</h1>
+      <p class="lede rv" style="margin:30px 0 38px">A garage, spare room, shed, driveway, basement or a whole warehouse bay. List it free, set your price and your rules, and we bring verified customers and handle the booking, messages and payments. No business needed.</p>
       <div style="display:flex;gap:14px;flex-wrap:wrap" class="rv"><a class="btn btn-p btn-lg" href="/host/join" data-link>List your space free</a><a class="btn btn-g btn-lg" href="#earn">What could I earn?</a></div>
       <p class="rv" style="margin-top:34px"><span class="badge acc" style="font-size:14px;padding:9px 18px">⚡ Founding owner offer: ${s.founding_owner_commission_pct}% commission for ${s.founding_owner_months} months · ${left} of ${f.slots} spots left</span></p></div></section>
+
+  <section class="sec ink2" id="what"><div class="wrap"><span class="mono eyebrow rv">What can you list?</span><h2 class="h-lg" data-split style="max-width:16ch;margin-bottom:46px">If it is dry, safe and lockable, it can earn.</h2>
+    <div class="tiles">${TYPE_TILES.map((t, i) => html`<a class="tile rv" style="--d:${i % 4}" href="/host/join?type=${t.t}" data-link><img src="${typeImage(t.t)}" alt="${t.name}" loading="lazy" decoding="async"><span class="ic">${icon(t.icon)}</span><div class="in"><h3>${t.name}</h3><div class="earn">Earn ${t.earn} ${t.tip}</div><p>${t.blurb}</p><div class="go"><span class="e">List it free</span></div></div></a>`)}</div>
+    <p class="muted rv" style="margin-top:30px;text-align:center;font-size:14px">Typical earnings come from published Australian platform and market figures and vary by suburb and demand. They are a guide, not a promise.</p></div></section>
 
   <section class="sec light"><div class="wrap"><span class="mono eyebrow rv">Why list with us</span><h2 class="h-lg" data-split style="max-width:16ch;margin-bottom:56px">Income from space you are not using.</h2>
     <div class="grid g3">${[['dollar', 'Free to list', 'No set-up fee, no monthly fee. You only pay a small commission when you actually earn.'], ['key', 'You are in control', 'Set the price, the dates, the rules and the hours. Accept or decline every request, or switch on Instant Book.'], ['shield', 'Verified customers', 'See who, what and when before you say yes. Prohibited goods are banned in the rental terms.'], ['chart', 'Pricing help', 'Our price guide shows what similar spaces earn near you, so you start at a smart number.'], ['clock', 'Fast payouts', 'Get paid after the booking starts. Track every dollar in your earnings dashboard.'], ['users', 'Real support', 'A real person, ' + s.contact_name + ', is one call away on ' + s.contact_phone + '.']].map(([i, t, p], k) => html`<div class="card hov rv" style="--d:${k % 3}"><div class="ico">${icon(i)}</div><h3>${t}</h3><p>${p}</p></div>`)}</div></div></section>
 
-  <section class="sec" id="earn"><div class="wrap"><div class="grid g2" style="gap:60px;align-items:center"><div><span class="mono eyebrow rv">Earnings calculator</span><h2 class="h-lg" data-split>See what your space could earn.</h2><p class="lede rv" style="margin-top:22px">Prices vary by city and type. These start points come from published Australian rates, and you can change them any time.</p>
-    <div class="chips rv" style="margin-top:28px" id="presets">${[['Pallet racking', 'pallet', 60, 4.4], ['Warehouse floor', 'sqm', 16, 0], ['Self-storage units', 'unit', 160, 0]].map(([l], i) => html`<button class="chip ${i === 1 ? 'on' : ''}" data-preset="${i}">${l}</button>`)}</div></div>
-    <div class="calc rv"><div id="cl1" class="mono">Square metres</div><div style="display:flex;justify-content:space-between;margin:14px 0 6px"><b id="v1"></b></div><input type="range" id="r1" style="width:100%" aria-label="Quantity">
-      <div id="cl2" class="mono" style="margin-top:26px">Price per m² per month</div><div style="display:flex;justify-content:space-between;margin:14px 0 6px"><b id="v2"></b></div><input type="range" id="r2" style="width:100%" aria-label="Price">
-      <div style="margin-top:26px" class="mono">Occupancy</div><div style="display:flex;justify-content:space-between;margin:14px 0 6px"><b id="v3">70%</b></div><input type="range" id="r3" min="20" max="100" step="5" value="70" style="width:100%" aria-label="Occupancy">
-      <div class="muted" style="margin-top:28px">Estimated monthly income after commission</div><div class="out" id="co">$0</div><div class="muted" id="cn" style="margin-top:10px;font-size:14px"></div></div></div></div></section>
+  <section class="sec light" id="allowed"><div class="wrap"><span class="mono eyebrow rv">Is it allowed?</span><h2 class="h-lg" data-split style="max-width:18ch;margin-bottom:20px">Four quick checks before you list.</h2><p class="lede rv" style="margin-bottom:46px">Most homes are fine. We ask you to confirm these when you list, so you and your customers are protected.</p>
+    <div class="perm">${[['key', 'It is yours to rent', 'You own it, or you rent and your landlord agrees in writing. Check strata or owners corporation by-laws and any council rules.'], ['shield', 'Insurance', 'Home and contents cover often skips other people\'s goods. Tell your insurer. Some listings include goods insurance.'], ['lock', 'Your privacy', 'Your exact address stays hidden until you accept a booking. You choose the access times and can meet at the door.'], ['file', 'The rules are written down', 'Our rental terms ban dangerous goods and overnight stays, and set clear rules for care and access.']].map(([i, t, p], k) => html`<div class="card rv" style="--d:${k}"><div class="ico">${icon(i)}</div><h3 style="font-size:21px">${t}</h3><p style="font-size:15px">${p}</p></div>`)}</div></div></section>
+
+  <section class="sec" id="earn"><div class="wrap"><div class="grid g2" style="gap:60px;align-items:center"><div><span class="mono eyebrow rv">Earnings calculator</span><h2 class="h-lg" data-split>See what your space could earn.</h2><p class="lede rv" style="margin-top:22px">Pick what you have and slide to your price. The starting points come from published Australian rates, and you can change your price any time.</p></div>
+    ${calcHtml(FIRST)}</div></div></section>
 
   <section class="sec light"><div class="wrap"><span class="mono eyebrow rv">Simple, honest pricing</span><h2 class="h-lg" data-split style="max-width:18ch;margin-bottom:56px">One small commission. Nothing else.</h2>
     <div class="grid g3"><div class="card rv"><span class="badge acc">Founding owners</span><div class="bignum" style="margin:18px 0 8px">${s.founding_owner_commission_pct}%</div><h3>for ${s.founding_owner_months} months</h3><p>For our first ${f.slots} owners. Every booking, every dollar, yours. ${left} spots left.</p></div>
       <div class="card rv" style="--d:1"><span class="badge">Standard</span><div class="bignum" style="margin:18px 0 8px">${s.owner_commission_pct}%</div><h3>of each booking</h3><p>Taken from your payout only when a booking happens. Customers pay a separate ${s.service_fee_pct}% service fee on top.</p></div>
-      <div class="card rv" style="--d:2"><span class="badge">Compare</span><div class="bignum" style="margin:18px 0 8px">15.5%</div><h3>Airbnb's host-only fee</h3><p>Hosts on big travel platforms typically hand over about 15.5% per booking. Ours is roughly half, and often nothing.</p></div></div>
-    <h3 class="h-md rv" style="margin:70px 0 10px;font-size:30px">What spaces earn: our price guide</h3><p class="muted rv" style="margin-bottom:22px">Typical Australian market ranges from published 2025-26 rates. Use them as a starting point, not a promise.</p>
+      <div class="card rv" style="--d:2"><span class="badge">Compare</span><div class="bignum" style="margin:18px 0 8px">15 to 23%</div><h3>What other platforms take</h3><p>Space and parking marketplaces have reported commissions of roughly 15% to 23%, and big travel platforms about 15.5%. Ours is about half of that, and often nothing.</p></div></div>
+    <h3 class="h-md rv" style="margin:70px 0 10px;font-size:30px">What spaces earn: our price guide</h3><p class="muted rv" style="margin-bottom:22px">Typical Australian ranges from published platform and market rates (garages, rooms and car spaces are monthly per space). Use them as a starting point, not a promise.</p>
     <div style="overflow-x:auto" class="rv"><table class="compare"><thead><tr><th>Space type</th><th>Typical price</th><th>How it is priced</th></tr></thead><tbody>
+      <tr><td>Garage (lock-up, single)</td><td>$200 to $350</td><td>per space, per month</td></tr><tr><td>Spare room, attic or basement</td><td>$110 to $250</td><td>per space, per month</td></tr><tr><td>Shed or backyard</td><td>$80 to $200</td><td>per space, per month</td></tr><tr><td>Driveway or car space</td><td>$150 to $250 (outer suburbs), $300 to $450+ (covered, near the city)</td><td>per space, per month</td></tr>
       <tr><td>Pallet position (racked)</td><td>$3.75 to $5.50</td><td>per pallet, per week</td></tr><tr><td>Cold-storage pallet</td><td>$8 to $14</td><td>per pallet, per week</td></tr><tr><td>Warehouse floor</td><td>$12 to $25</td><td>per m², per month</td></tr><tr><td>Self-storage unit (small to medium)</td><td>$80 to $350</td><td>per unit, per month</td></tr><tr><td>Container (20ft)</td><td>$180 to $300</td><td>per container, per month</td></tr><tr><td>Open yard / hardstand</td><td>$6 to $15</td><td>per m², per month</td></tr></tbody></table></div></div></section>
 
   <section class="sec"><div class="wrap"><span class="mono eyebrow rv">How hosting works</span><h2 class="h-lg" data-split style="margin-bottom:50px">Live in about ten minutes.</h2><div class="steps" style="max-width:820px">
@@ -58,11 +65,8 @@ async function host({ main, onLeave }) {
   <section class="sec" style="padding-top:0"><div class="wrap"><div class="cta-band center"><span class="mono eyebrow">Ready?</span><h2 class="h-xl" style="margin:0 auto;max-width:11ch">Put your space to work.</h2><p class="lede" style="margin:24px auto 36px">Questions first? Call ${s.contact_name} on <a class="link" href="tel:${s.contact_phone}">${s.contact_phone}</a>.</p><a class="btn btn-p btn-lg" href="/host/join" data-link>List your space free</a></div></div></section>`.s;
   try { const b = boxesScene($('#hb'), { count: 40 }); onLeave(() => b.dispose()); } catch (_) { /* no webgl */ }
   // calculator
-  const P = [{ l: 'Quantity', u: 'pallets', min: 10, max: 600, v: 100, pl: 'Price per pallet per week', pmin: 3, pmax: 12, pv: 4.5, k: 52 / 12, unit: 'pallet' }, { l: 'Square metres', u: 'm²', min: 20, max: 3000, v: 300, pl: 'Price per m² per month', pmin: 6, pmax: 40, pv: 16, k: 1 }, { l: 'Units', u: 'units', min: 5, max: 200, v: 30, pl: 'Price per unit per month', pmin: 60, pmax: 400, pv: 160, k: 1 }];
-  let cur = 1; const apply = () => { const p = P[cur]; $('#cl1').textContent = p.l; $('#cl2').textContent = p.pl; const r1 = $('#r1'), r2 = $('#r2'); r1.min = p.min; r1.max = p.max; r1.value = p.v; r2.min = p.pmin; r2.max = p.pmax; r2.step = p.pmax <= 15 ? 0.25 : 1; r2.value = p.pv; calc(); };
-  const calc = () => { const p = P[cur]; const q = +$('#r1').value, pr = +$('#r2').value, occ = +$('#r3').value / 100; const rate = parseFloat(s.owner_commission_pct) / 100; const gross = q * pr * p.k * occ; $('#v1').textContent = `${q.toLocaleString('en-AU')} ${p.u}`; $('#v2').textContent = `$${pr.toFixed(pr % 1 ? 2 : 0)}`; $('#v3').textContent = Math.round(occ * 100) + '%'; $('#co').textContent = money(Math.round(gross * (1 - rate) * 100)); $('#cn').textContent = `Gross ${money(Math.round(gross * 100))} less ${s.owner_commission_pct}% commission. Your first ${s.founding_owner_months} months could be commission-free.`; };
-  $('#presets').addEventListener('click', (e) => { const b = e.target.closest('[data-preset]'); if (!b) return; cur = +b.dataset.preset; $$('#presets .chip').forEach((x) => x.classList.toggle('on', x === b)); apply(); });
-  ['r1', 'r2', 'r3'].forEach((id) => $('#' + id).addEventListener('input', calc)); apply();
+  wireCalc($('#earn'), FIRST);
+  if (query?.type) setTimeout(() => $('#earn')?.scrollIntoView({ behavior: 'smooth' }), 400);
 }
 
 // ---------- how it works ----------

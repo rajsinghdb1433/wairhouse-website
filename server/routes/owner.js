@@ -15,7 +15,7 @@ const config = require('../config');
 const r = express.Router();
 r.use(requireRole('owner', 'admin'));
 
-const TYPES = ['warehouse', 'self-storage', 'container', 'cold-storage', 'pallet', 'yard', 'garage', 'pop-up', 'commercial-kitchen', 'other'];
+const TYPES = ['warehouse', 'pallet', 'self-storage', 'container', 'cold-storage', 'yard', 'garage', 'shed', 'spare-room', 'basement', 'parking', 'pop-up', 'commercial-kitchen', 'other'];
 const STATES = ['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'ACT', 'NT'];
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024, files: 6 }, fileFilter: (_req, f, cb) => cb(null, /^image\/(jpeg|png|webp)$/.test(f.mimetype)) });
@@ -75,6 +75,7 @@ r.get('/listings', (req, res) => {
 r.get('/listings/:id', (req, res) => { const l = mine(req, int(req.params.id)); if (!l) return res.status(404).json({ error: 'Not found.' }); res.json({ listing: { ...shapeListing(l, { full: true }), rejection_reason: l.rejection_reason } }); });
 
 r.post('/listings', (req, res) => {
+  if (!req.body?.confirm_rights) return res.status(400).json({ error: 'Please confirm you own this space or have permission to rent it out (landlord, strata or owners corporation).' });
   if (mailer.configured() && !req.user.email_verified) return res.status(403).json({ error: 'Please confirm your email before listing. Check your inbox.' });
   let d; try { d = parseListing(req.body || {}); } catch (e) { return res.status(e.status || 400).json({ error: e.message }); }
   const approval = getSetting('require_listing_approval') === '1';
@@ -82,7 +83,7 @@ r.post('/listings', (req, res) => {
   const info = q.run(`INSERT INTO listings(owner_id,slug,title,summary,description,type,address_line,suburb,state,postcode,lat,lng,unit,price_cents,period,capacity,total_sqm,height_m,min_days,features,images,access_hours,instant_book,insurance_included,status,created_at,updated_at)
     VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     req.user.id, slug, d.title, d.summary, d.description, d.type, d.address_line, d.suburb, d.state, d.postcode, d.lat, d.lng, d.unit, d.price_cents, d.period, d.capacity, d.total_sqm, d.height_m, d.min_days, d.features, '[]', d.access_hours, d.instant_book, d.insurance_included, approval ? 'draft' : 'active', t, t);
-  audit(req.user.id, 'listing_created', slug, ip(req));
+  audit(req.user.id, 'listing_created', `${slug} (rights confirmed)`, ip(req));
   res.json({ listing: shapeListing(q.get('SELECT * FROM listings WHERE id = ?', Number(info.lastInsertRowid)), { full: true }) });
 });
 

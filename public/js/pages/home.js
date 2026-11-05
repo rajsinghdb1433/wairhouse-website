@@ -1,5 +1,6 @@
-import { html, raw, $, $$, api, state, icon, listingCard, countUp, setTitle, reduceMotion, esc, money } from '../lib.js';
+import { html, raw, $, $$, api, state, icon, listingCard, countUp, setTitle, reduceMotion, esc, money, TYPE_TILES, typeImage, TYPE_LABEL } from '../lib.js';
 import { heroScene, spaceViz, boxesScene } from '../scenes.js';
+import { calcHtml, wireCalc } from './calc.js';
 
 // caption beats over the scroll journey: [start, end, side, title, text, cta]
 const BEATS = [
@@ -7,7 +8,7 @@ const BEATS = [
   [0.17, 0.33, 'l', 'Space is everywhere.', 'Empty racking. Spare sheds. Quiet corners. Most of it sits unused.'],
   [0.37, 0.54, 'r', 'Verified. Insured. Yours.', 'Book by the pallet, the square metre or the unit. Real owners, real addresses.'],
   [0.58, 0.72, 'l', 'In minutes. Not months.', 'Pick your dates, send a request, get access. Leave whenever you like.'],
-  [0.76, 0.88, 'c', 'Got space nobody uses?', 'List it free and earn from the first booking.', 'host'],
+  [0.76, 0.88, 'c', 'Spare room? Garage? Shed?', 'List it free. Anyone can host, and the first booking pays.', 'host'],
   [0.92, 1.01, 'c', 'wAIRhouse.', 'Space, on demand.', 'search'],
 ];
 const SIZES = [
@@ -37,12 +38,12 @@ export default async function home({ main, onLeave }) {
     <div class="static-hero"><div class="wrap"><span class="mono eyebrow">${s.hero_eyebrow}</span><h1>${heroTitle.map((l, j) => html`${j ? raw('<br>') : ''}${j === heroTitle.length - 1 ? html`<span class="grad">${l}</span>` : l}`)}</h1><p class="lede" style="margin:20px 0 28px">${s.hero_subtitle}</p><a class="btn btn-p btn-lg btn-block" href="/search" data-link>Find space</a><a class="btn btn-g btn-lg btn-block" style="margin-top:12px" href="/host" data-link>List your space</a></div></div>
   </div></section>
 
-  <div class="marquee" aria-hidden="true"><div class="track">${[0, 1].map(() => html`${['Pallet racking', 'Self storage', 'Cold rooms', 'Container yards', 'Pop-up space', 'Garages', 'Dock-high warehouses', 'Commercial kitchens'].map((x) => html`<span>${x}</span>`)}`)}</div></div>
+  <div class="marquee" aria-hidden="true"><div class="track">${[0, 1].map(() => html`${['Garages', 'Spare rooms', 'Driveways', 'Sheds', 'Basements', 'Pallet racking', 'Self storage', 'Cold rooms', 'Container yards', 'Backyards', 'Dock-high warehouses'].map((x) => html`<span>${x}</span>`)}`)}</div></div>
 
   <section class="sec light"><div class="wrap">
     <span class="mono eyebrow rv">The idea</span>
     <h2 class="h-lg" data-split style="max-width:18ch">Space is the one thing everyone has too much of, or too little.</h2>
-    <p class="lede rv" style="margin-top:28px">Owners have empty racking and sheds. Businesses cannot find a few pallets of space without a long contract. wAIRhouse connects them in minutes, like booking a stay, but for stuff.</p>
+    <p class="lede rv" style="margin-top:28px">Households have empty garages, spare rooms and driveways. Businesses cannot find a few pallets of space without a long contract. wAIRhouse connects them in minutes, like booking a stay, but for stuff.</p>
     <div class="grid g3" style="margin-top:70px">
       <div class="card rv" style="--d:0"><div class="bignum"><span data-count="${Math.max(st.spaces, 1)}">0</span>+</div><p>Spaces ready to book</p></div>
       <div class="card rv" style="--d:1"><div class="bignum"><span data-count="${Math.max(st.sqm, 1)}">0</span></div><p>Square metres of room</p></div>
@@ -52,6 +53,12 @@ export default async function home({ main, onLeave }) {
   <section class="sec"><div class="wrap">
     <div style="display:flex;justify-content:space-between;align-items:end;gap:20px;flex-wrap:wrap;margin-bottom:46px"><div><span class="mono eyebrow rv">Featured spaces</span><h2 class="h-lg" data-split>Ready when you are.</h2></div><a class="btn btn-g rv" href="/search" data-link>Browse everything →</a></div>
     <div class="grid g3">${featured.listings.length ? featured.listings.map((l) => listingCard(l)) : html`<div class="empty" style="grid-column:1/-1"><h3>Spaces are on their way.</h3><p>Be the first to list yours.</p></div>`}</div></div></section>
+
+  <section class="sec ink2" id="types"><div class="wrap">
+    <div style="display:flex;justify-content:space-between;align-items:end;gap:24px;flex-wrap:wrap;margin-bottom:46px"><div><span class="mono eyebrow rv">For everyone with space</span><h2 class="h-lg" data-split style="max-width:14ch">Any space can earn.</h2></div><p class="lede rv" style="max-width:44ch">You do not need a warehouse. A garage, a spare room, a shed or a driveway is enough. Pick what you have and see what it could pay.</p></div>
+    <div class="tiles">${TYPE_TILES.map((t, i) => html`<a class="tile rv" style="--d:${i % 4}" href="/host/join?type=${t.t}" data-link><img src="${typeImage(t.t)}" alt="${t.name}" loading="lazy" decoding="async"><span class="ic">${icon(t.icon)}</span><div class="in"><h3>${t.name}</h3><div class="earn">Earn ${t.earn} ${t.tip}</div><p>${t.blurb}</p><div class="go"><span class="e">List it free</span></div></div></a>`)}</div>
+    <p class="muted rv" style="margin-top:34px;text-align:center">Looking to rent a space instead? Browse by type: ${['garage', 'spare-room', 'parking', 'shed', 'basement', 'warehouse', 'self-storage'].map((t, i) => html`${i ? ' · ' : ''}<a class="link" href="/search?type=${t}" data-link>${TYPE_LABEL[t]}</a>`)}</p>
+    <p class="muted rv" style="margin-top:10px;text-align:center;font-size:13px">Typical earnings come from published Australian platform and market figures. They vary by suburb and demand.</p></div></section>
 
   <section class="sticky-sec" id="sizes"><div class="pin-in"><div class="wrap sz-wrap">
     <div><span class="mono eyebrow">Find your size</span><h2 class="h-lg" style="margin-bottom:30px">From a shelf<br>to a warehouse.</h2>
@@ -80,12 +87,10 @@ export default async function home({ main, onLeave }) {
       <tr><td>Comparing prices</td><td>Quote by quote</td><td class="us">Side by side, instantly</td></tr><tr><td>Scale up or down</td><td>Renegotiate</td><td class="us">Change in a tap</td></tr></tbody></table></div></div></section>
 
   <section class="sec" id="earn-home"><div class="wrap"><div class="grid g2" style="align-items:center;gap:60px">
-    <div><span class="mono eyebrow rv">For owners</span><h2 class="h-lg" data-split>Empty space is lost money.</h2><p class="lede rv" style="margin:22px 0 30px">List your spare racking, bays, units or yard for free. You set the price and the rules. We bring the customers and handle the booking.</p>
+    <div><span class="mono eyebrow rv">For hosts</span><h2 class="h-lg" data-split>That empty space could pay you.</h2><p class="lede rv" style="margin:22px 0 30px">Spare room, garage, shed, driveway or a whole warehouse bay. List it free, set your price and your rules, and we bring the customers and handle the booking. No business needed.</p>
       <p class="rv" style="margin-bottom:30px"><span class="badge acc" style="font-size:14px;padding:8px 16px">⚡ First ${founding.slots} owners: ${s.founding_owner_commission_pct}% commission for ${s.founding_owner_months} months · ${Math.max(0, founding.slots - founding.taken)} spots left</span></p>
       <a class="btn btn-p btn-lg rv" href="/host" data-link>Start earning</a></div>
-    <div class="calc rv"><label class="mono">Your space</label><div style="display:flex;justify-content:space-between;margin:14px 0 6px"><b id="cs-l">200 m²</b><span class="muted">idle space</span></div><input type="range" id="cs" min="10" max="2000" step="10" value="200" style="width:100%" aria-label="Square metres">
-      <label class="mono" style="display:block;margin-top:26px">Typical price</label><div style="display:flex;justify-content:space-between;margin:14px 0 6px"><b id="cp-l">$16 / m² / month</b></div><input type="range" id="cp" min="6" max="45" step="1" value="16" style="width:100%" aria-label="Price per square metre per month">
-      <div class="muted" style="margin-top:28px">You could earn about</div><div class="out" id="co">$0</div><div class="muted" style="margin-top:8px">per month at 70% occupancy, after fees</div></div></div></div></section>
+    ${calcHtml(0)}</div></div></section>
 
   <section class="sec light"><div class="wrap" style="max-width:900px"><span class="mono eyebrow rv">Questions</span><h2 class="h-lg" data-split style="margin-bottom:40px">Good to know.</h2>
     <div class="acc rv">${faqs.faqs.slice(0, 6).map((f) => html`<details><summary>${f.question}</summary><p>${f.answer}</p></details>`)}</div><p style="margin-top:30px"><a class="link" href="/faq" data-link>See all questions →</a></p></div></section>
@@ -125,8 +130,7 @@ export default async function home({ main, onLeave }) {
   const v = $('#fv'); if (v && !reduceMotion()) { const vio = new IntersectionObserver(([e]) => { if (e.isIntersecting) { v.preload = 'auto'; v.play().catch(() => {}); } else v.pause(); }, { threshold: 0.35 }); vio.observe(v); onLeave(() => vio.disconnect()); }
 
   // ---- earnings calculator ----
-  const calc = () => { const sq = +$('#cs').value, pr = +$('#cp').value; $('#cs-l').textContent = sq.toLocaleString('en-AU') + ' m²'; $('#cp-l').textContent = `$${pr} / m² / month`; const gross = sq * pr * 0.7; const net = gross * (1 - 0.08); $('#co').textContent = money(Math.round(net * 100)); };
-  $('#cs').addEventListener('input', calc); $('#cp').addEventListener('input', calc); calc();
+  wireCalc($('#earn-home'), 0);
 
   // ---- CTA backdrop ----
   try { const b = boxesScene($('#cb')); onLeave(() => b.dispose()); } catch (_) { $('#cb')?.remove(); }

@@ -10,7 +10,7 @@ Last updated: {{updated}}
 These Terms govern your use of the {{brand_name}} website and services (the **Platform**), operated by {{business_name}} (**we**, **us**). By creating an account or using the Platform you agree to these Terms. If you do not agree, do not use the Platform.
 
 ## 1. What we do
-{{brand_name}} is an online marketplace. It lets people who have storage or warehouse space (**Owners**) list it, and people who need space (**Customers**) find and book it. **We are not a party to the storage agreement between an Owner and a Customer.** We provide the technology, payments facilitation, verification tools and support.
+{{brand_name}} is an online marketplace. It lets anyone with space to spare (**Owners**, from warehouse operators to households with a garage, shed, spare room or driveway) list it, and people who need space (**Customers**) find and book it. **We are not a party to the storage agreement between an Owner and a Customer.** We provide the technology, payments facilitation, verification tools and support.
 
 ## 2. Accounts
 - You must be 18 or older and able to enter into a binding contract.
@@ -171,22 +171,31 @@ This agreement is between you (**Owner**) and {{business_name}} when you list sp
 ## 3. Payouts
 We pay the booking price less commission to the payout details you provide, after the booking starts. We may delay or withhold payouts for suspected fraud, chargebacks, or unresolved disputes, and will explain why.
 
-## 4. Safety and goods
+## 4. Home and household spaces
+If you list part of your home or property (garage, shed, spare room, basement, attic, driveway, car space or backyard):
+- **Permission.** If you rent, you must have your landlord's written permission. If you live in a strata or community scheme, check the by-laws. Check any council rules about storage or use of a home.
+- **Insurance.** Home and contents insurance often does not cover other people's goods or business use. Check with your insurer before you list and tell them.
+- **Your home, your rules.** Set clear access times. Customers must not sleep, live or run a business at your property unless the listing says so.
+- **Privacy.** We only share your exact address with a customer after you accept their booking. You may ask a customer to meet you at the door.
+- **Tax.** Income from renting space can be taxable. Keep records and get advice from the ATO or an accountant.
+- If anything feels unsafe, you may cancel and contact us straight away.
+
+## 5. Safety and goods
 You must keep the space safe, secure and as described. You must not store or knowingly allow prohibited goods. If you find prohibited or dangerous goods you must tell us and the Customer straight away and, if there is danger, call emergency services.
 
-## 5. Taking bookings off-platform
+## 6. Taking bookings off-platform
 For customers first introduced through {{brand_name}}, bookings must be made and paid on the Platform for the first 12 months after introduction.
 
-## 6. Your content
+## 7. Your content
 You give us a licence to display your photos and descriptions on and in connection with the Platform (including marketing). You promise you have the right to do so.
 
-## 7. Ending
+## 8. Ending
 You can pause or remove a listing at any time, after completing confirmed bookings. We can suspend or remove listings that break this agreement or put people at risk.
 
-## 8. Liability
+## 9. Liability
 You are responsible for loss or damage caused by your negligence. Our liability to you is limited as set out in the Terms of Service. Nothing here excludes rights under the Australian Consumer Law.
 
-## 9. Governing law
+## 10. Governing law
 The laws of {{governing_law}} apply.
 ` },
   { slug: 'cancellation', title: 'Cancellation and Refund Policy', category: 'legal', body: `
@@ -235,6 +244,12 @@ Everyone using {{brand_name}} must keep storage safe and lawful.
 - Anything that smells, leaks or attracts pests.
 - Cash, jewellery, or items of unusual value without telling the Owner and arranging suitable insurance.
 
+## Home and household spaces
+- Customers must respect the home: arrive only at agreed times, keep noise down, and do not enter other parts of the property.
+- No overnight stays, camping or sleeping in a garage, shed, car space or room.
+- Cars and vehicles may only be stored in spaces listed for parking or vehicle storage.
+- Owners must not enter or go through customers' goods, and must not move them without telling the customer, except in an emergency.
+
 ## Never use a space to
 - Live, sleep or run a business that needs customers visiting, unless the listing allows it.
 - Make or sell illegal goods, or run any unlawful activity.
@@ -268,7 +283,7 @@ You can block cookies in your browser, but signing in will not work without the 
   { slug: 'about', title: 'About wAIRhouse', category: 'info', body: `
 # Space, on demand.
 
-{{brand_name}} makes unused warehouse and storage space useful again. Businesses get flexible, verified space by the day, week or month. Owners turn empty racking, sheds, containers and yards into steady income.
+{{brand_name}} makes unused space useful again. People and businesses get flexible, verified space by the day, week or month. Owners, from warehouse operators to everyday households, turn empty racking, garages, spare rooms, sheds, driveways and yards into steady income.
 
 ## Why we exist
 Across Australia there is a lot of space sitting empty, while small businesses, online sellers, tradies, event crews and families struggle to find storage without signing long, expensive contracts. We built {{brand_name}} to match them in minutes.

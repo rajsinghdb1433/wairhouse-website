@@ -34,6 +34,22 @@ Worked example, A$1,000 booking: customer pays **A$1,060**; owner receives **A$9
 
 Later options: a paid "Pro" plan (A$49 / month, 5% commission, multi-site dashboard, WMS/API integration), promoted listings, a cleaning/handling add-on marketplace, and insurance commission (partner with a goods-in-storage insurer).
 
+## 3b. Everyday hosts: garages, spare rooms, sheds and driveways
+
+wAIRhouse is open to anyone with space, not just warehouse operators. Evidence used for the household price guide (almost all of it comes from the platforms' own marketing or press, so treat it as optimistic):
+
+| Space | Typical earning | Source |
+|---|---|---|
+| Garage or lock-up | about $200 to $350 / month (up to ~$500 for a secure lock-up) | [Spacer launch pricing guidance and coverage](https://www.insideselfstorage.com/australasia/web-startup-spacer-launches-peer-to-peer-self-storage-marketplace-australia), [Parkhound host guide](https://www.parkhound.com.au/blog/how-to-rent-out-your-parking-space-and-earn-extra-income-with-parkhound/) |
+| Spare room, attic, backyard | about $150 to $250 / month (2015 launch guidance, dated) | Spacer (same sources) |
+| Driveway, outer suburbs | about $150 to $250 / month | [Parkhound](https://www.parkhound.com.au/blog/how-to-rent-out-your-parking-space-and-earn-extra-income-with-parkhound/), [Parksy](https://www.parksy.com/blog/how-rent-out-your-parking-space-and-earn-passive-income) |
+| Covered or secure car space near the CBD | about $300 to $450, up to $1,000 in the best CBD spots | [CarAdvice on Parkhound](https://www.caradvice.com.au/news/rent-car-space-australia-parkhound/) |
+| Real host example | $166 / month from one Melbourne parking space | [Yahoo Finance](https://au.finance.yahoo.com/news/easy-side-hustle-earning-zofia-1992-per-year-free-money-024001969.html) |
+
+Competitor fees reported in the press: Spacer about 15% on top of the host price (2017 report); Parkhound about 23% commission. wAIRhouse charges owners 8% and customers 6%, and 0% for six months for the first 50 owners.
+
+**Household-specific protections built in:** hosts confirm they own the space or have landlord, strata and council permission; the exact address is hidden until a booking is accepted; overnight stays and dangerous goods are banned; the Owner Agreement has a "Home and household spaces" section (permission, insurance, privacy, tax). Income is taxable, so hosts should keep records and check with the ATO or an accountant.
+
 ## 4. What a customer gets (the benefits list used on the site)
 
 1. **No lock-in:** from 1 day to 2 years, extend or leave in a tap. Traditional operators typically want 3 to 12 months.
