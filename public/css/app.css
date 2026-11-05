@@ -279,3 +279,6 @@ input[type=range]{accent-color:var(--accent)}
 }
 @media (max-width:560px){.g4{grid-template-columns:1fr}body{font-size:16px}.cookie{left:12px;right:12px;bottom:12px}}
 @media print{.hdr,.ftr,.side,.cookie,.toasts{display:none!important}body{background:#fff;color:#000}}
+/* fixes */
+.row,.row3{align-items:start}.row>*,.row3>*{min-width:0}.field input[type=date]{min-width:0}
+.static-hero{background:linear-gradient(180deg,transparent 0,rgba(7,11,20,.8) 30%,rgba(7,11,20,.92) 100%)}
