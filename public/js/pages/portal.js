@@ -12,7 +12,7 @@ export const STATUS = { pending: 'warn', accepted: 'ok', active: 'ok', completed
 export const badge = (s) => html`<span class="badge ${STATUS[s] ?? ''}">${String(s).replace('_', ' ')}</span>`;
 export const empty = (t, p, cta = '') => html`<div class="empty"><h3>${t}</h3><p>${p}</p>${cta}</div>`;
 export const kpi = (label, value) => html`<div class="kpi"><small>${label}</small><b>${value}</b></div>`;
-export const verifyBanner = () => state.user && !state.user.email_verified ? html`<div class="err" style="background:rgba(255,194,75,.1);border-color:rgba(255,194,75,.4);color:#ffd98a;display:flex;gap:14px;align-items:center;flex-wrap:wrap;justify-content:space-between">Please confirm your email address. Check your inbox for our link.<button class="btn btn-g btn-sm" id="resend">Resend email</button></div>` : '';
+export const verifyBanner = () => state.user && !state.user.email_verified && state.site?.mail ? html`<div class="err" style="background:rgba(255,194,75,.1);border-color:rgba(255,194,75,.4);color:#ffd98a;display:flex;gap:14px;align-items:center;flex-wrap:wrap;justify-content:space-between">Please confirm your email address. Check your inbox for our link.<button class="btn btn-g btn-sm" id="resend">Resend email</button></div>` : '';
 export function wireVerify(root) { $('#resend', root)?.addEventListener('click', async () => { try { await api('/auth/resend-verification', { method: 'POST' }); toast('Sent. Check your inbox.', 'ok'); } catch (e) { toast(e.message, 'bad'); } }); }
 
 // ---------- messages (shared by customer and owner) ----------

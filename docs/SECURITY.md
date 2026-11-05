@@ -38,4 +38,5 @@ What is built in, what to switch on, and what is still your job.
 - Rate limiting is in memory, per server process. One Node process is fine; if you ever scale to several, move limits to Redis.
 - SQLite is perfect for launch and tens of thousands of listings. Move to Postgres when you need multiple servers.
 - Identity verification of owners is email + admin review today. Add a document check (for example Stripe Identity) as volume grows.
-- Hotmail SMTP is fine for a few hundred emails a day. For marketing volume, move to a transactional provider and your own domain (SPF, DKIM, DMARC) so mail does not land in spam.
+- Personal Hotmail/Outlook.com cannot send through SMTP (Microsoft disabled password sign-in), so mail is sent from a mailbox on your own domain, with Hotmail as the Reply-To. A normal mailbox handles a few hundred emails a day; for marketing volume move to a transactional provider and set SPF, DKIM and DMARC so mail does not land in spam.
+- The built-in picture check stops scripts and casual bots, not a determined attacker with a paid solving service. For stronger protection switch on Cloudflare Turnstile (free): set `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET` and the site uses it automatically.

@@ -1,25 +1,61 @@
 'use strict';
-// Email: branded HTML templates + delivery. If SMTP is not configured, mail is stored in the outbox
-// (visible in Admin > Email) instead of being lost, so nothing breaks before credentials are added.
+// Email: branded HTML templates + delivery. The mail account is chosen in Admin > Email (password stored encrypted),
+// or falls back to environment variables. If no account is connected, mail is kept in the outbox (Admin > Email)
+// instead of being lost, and can be sent later with one click.
 const fs = require('fs');
 const path = require('path');
 const nodemailer = require('nodemailer');
 const config = require('./config');
-const { q, now, getSetting, allSettings } = require('./db');
-const { esc, hmac } = require('./util');
+const { q, now, getSetting, allSettings, getSecret } = require('./db');
+const { esc, hmac, decrypt } = require('./util');
 
-let transport = null;
-const configured = () => !!(config.mail.user && config.mail.pass);
+// The active mail account: saved in Admin > Email, else environment variables.
+function mailConfig() {
+  const env = config.mail;
+  let c = { host: env.host, port: env.port, secure: env.secure, user: env.user, pass: env.pass, from: env.from, fromName: env.fromName, replyTo: env.replyTo, source: 'env' };
+  try {
+    const raw = getSecret('smtp_config');
+    if (raw) {
+      const j = JSON.parse(raw); const pass = decrypt(j.pass_enc);
+      if (j.host && j.user && pass) c = { host: j.host, port: Number(j.port) || 587, secure: !!j.secure, user: j.user, pass, from: j.from || j.user, fromName: j.from_name || env.fromName, replyTo: j.reply_to || env.replyTo, source: 'admin' };
+    }
+  } catch (_) { /* fall back to environment variables */ }
+  return c;
+}
+// Tests and local development only: no network, messages are recorded as sent.
+const sink = () => process.env.MAIL_SINK === '1' && !config.isProd;
+const configured = () => { if (sink()) return true; const c = mailConfig(); return !!(c.user && c.pass); };
+
+let transport = null, transportKey = '';
 function getTransport() {
-  if (!configured()) return null;
-  if (!transport) {
+  if (sink()) return transport || (transport = nodemailer.createTransport({ jsonTransport: true }));
+  const c = mailConfig(); if (!c.user || !c.pass) return null;
+  const key = [c.host, c.port, c.secure, c.user, hmac(c.pass)].join('|');
+  if (!transport || key !== transportKey) {
+    try { transport && transport.close(); } catch (_) { /* ignore */ }
     transport = nodemailer.createTransport({
-      host: config.mail.host, port: config.mail.port, secure: config.mail.secure,
-      requireTLS: !config.mail.secure, auth: { user: config.mail.user, pass: config.mail.pass },
-      tls: { minVersion: 'TLSv1.2' }, pool: true, maxConnections: 2, maxMessages: 50,
+      host: c.host, port: c.port, secure: c.secure, requireTLS: !c.secure, auth: { user: c.user, pass: c.pass },
+      tls: { minVersion: 'TLSv1.2' }, pool: true, maxConnections: 2, maxMessages: 50, connectionTimeout: 15000, greetingTimeout: 15000, socketTimeout: 30000,
     });
+    transportKey = key;
   }
   return transport;
+}
+function resetTransport() { try { transport && transport.close(); } catch (_) { /* ignore */ } transport = null; transportKey = ''; }
+
+// Turn raw SMTP errors into something a non-technical person can act on.
+function friendlyError(e) {
+  const m = String((e && (e.response || e.message)) || e || '');
+  if (/basic authentication|5\.7\.139|5\.7\.30|SmtpClientAuthentication/i.test(m)) return 'This provider no longer allows password sign-in for sending email (personal Hotmail and Outlook accounts do not). Use a Hostinger Email mailbox or another provider.';
+  if (e && (e.code === 'EAUTH' || e.responseCode === 535) || /invalid login|authentication failed|535/i.test(m)) return 'The mail server did not accept that username or password.';
+  if (e && e.code === 'ENOTFOUND') return 'That mail server name was not found. Check the host name.';
+  if (e && (e.code === 'ETIMEDOUT' || e.code === 'ECONNREFUSED' || e.code === 'ESOCKET' || e.code === 'ECONNECTION')) return 'Could not reach the mail server. Check the host and port.';
+  return m.replace(/\s+/g, ' ').slice(0, 240) || 'Email could not be sent.';
+}
+async function verifyConnection() {
+  const t = getTransport(); if (!t) return { ok: false, error: 'Email is not connected yet.' };
+  if (sink()) return { ok: true };
+  try { await t.verify(); return { ok: true }; } catch (e) { return { ok: false, error: friendlyError(e) }; }
 }
 
 const LOGO_PNG = path.join(__dirname, '..', 'public', 'img', 'logo-mark.png');
@@ -27,26 +63,36 @@ const attachments = () => fs.existsSync(LOGO_PNG) ? [{ filename: 'wairhouse.png'
 
 function unsubscribeUrl(email) { return `${config.siteUrl}/api/unsubscribe?e=${encodeURIComponent(email)}&s=${hmac('unsub|' + String(email).toLowerCase())}`; }
 
-async function send({ to, subject, html, text, kind = 'system', marketing = false }) {
+// Sends (or re-sends) one stored message. The outbox row is updated in place, so retries never create duplicates.
+async function deliver(id) {
+  const e = q.get('SELECT * FROM email_outbox WHERE id = ?', id); if (!e) return { ok: false, error: 'Email not found.' };
+  const t = getTransport();
+  if (!t) { q.run("UPDATE email_outbox SET status='not_sent', error=? WHERE id=?", 'Email is not connected yet. Connect it in Admin > Email.', id); return { ok: false, id, error: 'smtp_not_configured' }; }
+  const c = mailConfig();
+  try {
+    const headers = e.kind === 'outreach' ? { 'List-Unsubscribe': `<${unsubscribeUrl(e.to_email)}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' } : {};
+    await t.sendMail({ from: { name: c.fromName, address: c.from }, replyTo: c.replyTo, to: e.to_email, subject: e.subject, html: e.html, text: e.text, attachments: attachments(), headers });
+    q.run("UPDATE email_outbox SET status='sent', sent_at=?, error='' WHERE id=?", now(), id);
+    return { ok: true, id };
+  } catch (err) {
+    const msg = friendlyError(err);
+    q.run("UPDATE email_outbox SET status='failed', error=? WHERE id=?", msg.slice(0, 300), id);
+    return { ok: false, id, error: msg };
+  }
+}
+async function send({ to, subject, html, text, kind = 'system' }) {
   to = String(to || '').trim();
   if (!to) return { ok: false, error: 'no recipient' };
   if (q.get('SELECT 1 FROM suppression WHERE email = ?', to)) return { ok: false, error: 'suppressed' };
   const row = q.run('INSERT INTO email_outbox(kind,to_email,subject,html,text,status,created_at) VALUES(?,?,?,?,?,?,?)', kind, to, subject, html, text, 'queued', now());
-  const id = Number(row.lastInsertRowid);
-  const t = getTransport();
-  if (!t) { q.run("UPDATE email_outbox SET status='not_sent', error=? WHERE id=?", 'SMTP not configured (set SMTP_USER and SMTP_PASS)', id); return { ok: false, id, error: 'smtp_not_configured' }; }
-  try {
-    const headers = marketing ? { 'List-Unsubscribe': `<${unsubscribeUrl(to)}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' } : {};
-    await t.sendMail({
-      from: { name: config.mail.fromName, address: config.mail.from },
-      replyTo: config.mail.replyTo, to, subject, html, text, attachments: attachments(), headers,
-    });
-    q.run("UPDATE email_outbox SET status='sent', sent_at=? WHERE id=?", now(), id);
-    return { ok: true, id };
-  } catch (e) {
-    q.run("UPDATE email_outbox SET status='failed', error=? WHERE id=?", String(e.message || e).slice(0, 300), id);
-    return { ok: false, id, error: String(e.message || e) };
-  }
+  return deliver(Number(row.lastInsertRowid));
+}
+// Send everything that was saved while email was off or failing (newest week only).
+async function retryUnsent(limit = 50) {
+  const rows = q.all("SELECT id FROM email_outbox WHERE status IN ('not_sent','failed') AND created_at > ? ORDER BY id ASC LIMIT ?", now() - 7 * 86400_000, limit);
+  let sent = 0, failed = 0, lastError = '';
+  for (const r of rows) { const out = await deliver(r.id); if (out.ok) sent++; else { failed++; lastError = out.error; if (out.error === 'smtp_not_configured') break; } await new Promise((res) => setTimeout(res, 300)); }
+  return { tried: rows.length, sent, failed, error: lastError };
 }
 // fire-and-forget wrapper used by request handlers
 const queue = (m) => { send(m).catch(() => {}); };
@@ -100,13 +146,15 @@ const table = (rows) => `<table role="presentation" width="100%" cellpadding="0"
 
 // ---------- the emails ----------
 const T = {
-  welcome(u) {
-    const owner = u.role === 'owner';
-    return { subject: `Welcome to wAIRhouse, ${u.name.split(' ')[0]}`,
-      html: layout({ title: `Welcome aboard, ${u.name.split(' ')[0]}`, preheader: 'Your account is ready.',
-        body: p(owner ? 'Your owner account is ready. Add your first space, upload a few photos and set your price. Most owners go live in under 10 minutes.' : 'Your account is ready. Search verified storage near you, compare prices and book in a few taps. No long contracts.'),
-        cta: owner ? 'Add your first space' : 'Find storage', ctaUrl: `${config.siteUrl}/${owner ? 'owner' : 'search'}` }),
-      text: textOf('Welcome to wAIRhouse', [owner ? 'Your owner account is ready.' : 'Your account is ready.'], `${config.siteUrl}/${owner ? 'owner' : 'search'}`) };
+  welcome(u, token) {
+    const owner = u.role === 'owner'; const first = u.name.split(' ')[0];
+    const next = `${config.siteUrl}/${owner ? 'owner/listings/new' : 'search'}`; const verifyUrl = token ? `${config.siteUrl}/verify?token=${token}` : '';
+    const intro = owner ? 'Your owner account is ready. Add your first space, upload a few photos and set your price. Most hosts go live in under 10 minutes.' : 'Your account is ready. Search verified space near you, compare prices and book in a few taps. No long contracts.';
+    const body = p(intro) + (verifyUrl ? p('<strong>One quick step:</strong> confirm this is your email address. The button below works for 24 hours.') : '');
+    const after = verifyUrl ? p(`Ready to get going? <a href="${esc(next)}" style="color:#ff6b2c;font-weight:700;text-decoration:none">${owner ? 'Add your first space' : 'Find storage'}</a>.`) : '';
+    return { subject: verifyUrl ? `Welcome to wAIRhouse, ${first}: please confirm your email` : `Welcome to wAIRhouse, ${first}`,
+      html: layout({ title: `Welcome aboard, ${first}`, preheader: verifyUrl ? 'Confirm your email to finish setting up.' : 'Your account is ready.', body, cta: verifyUrl ? 'Confirm my email' : (owner ? 'Add your first space' : 'Find storage'), ctaUrl: verifyUrl || next, footerExtra: after }),
+      text: textOf(`Welcome to wAIRhouse, ${first}`, [intro, verifyUrl ? 'Please confirm your email address (link works for 24 hours):' : ''], verifyUrl || next) };
   },
   verify(u, token) {
     const url = `${config.siteUrl}/verify?token=${token}`;
@@ -190,4 +238,4 @@ const T = {
   },
 };
 
-module.exports = { send, queue, T, layout, configured, unsubscribeUrl };
+module.exports = { send, queue, deliver, retryUnsent, verifyConnection, resetTransport, mailConfig, friendlyError, T, layout, configured, unsubscribeUrl };

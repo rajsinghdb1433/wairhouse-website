@@ -44,7 +44,7 @@ async function register({ main, query, onLeave, invite, forceOwner }) {
   $('#p').addEventListener('input', (e) => { const n = strength(e.target.value); $('#pw').textContent = ['Too short', 'Weak', 'Okay', 'Good', 'Strong', 'Excellent'][n] + (n < 2 ? '. Try a longer phrase.' : ''); $('#pw').style.color = n < 2 ? 'var(--bad)' : n < 4 ? 'var(--warn)' : 'var(--ok)'; });
   $('#f').addEventListener('submit', (e) => { e.preventDefault(); const f = e.target; submitForm(f, async () => {
     const d = formData(f); const r = await api('/auth/register', { method: 'POST', body: { ...d, role, accept_terms: !!d.accept_terms, marketing_opt_in: !!d.marketing_opt_in, invite_token: invite?.token, ...captchaValues(f) } });
-    state.user = r.user; state.csrf = r.csrf; toast('Welcome to wAIRhouse! Check your email to confirm.', 'ok');
+    state.user = r.user; state.csrf = r.csrf; toast(r.mail ? 'Welcome to wAIRhouse! We emailed you a link to confirm your address.' : 'Welcome to wAIRhouse! Your account is ready.', 'ok');
     const next = query.next && query.next.startsWith('/') && !query.next.startsWith('//') ? query.next : null; navigate(next || (role === 'owner' ? '/owner/listings/new' : '/search'));
   }); });
 }

@@ -70,7 +70,7 @@ r.get('/site', (req, res) => {
   };
   const founding = { slots: int(s.founding_owner_slots, 0), taken: q.get("SELECT COUNT(*) c FROM users WHERE role='owner' AND email NOT LIKE '%@demo.wairhouse.example'").c };
   res.set('Cache-Control', 'public, max-age=30');
-  res.json({ settings: out, media: require('../media').resolveAll(), stats, founding, stripe: !!config.stripe.secret && s.stripe_enabled === '1' });
+  res.json({ settings: out, media: require('../media').resolveAll(), mail: mailer.configured(), stats, founding, stripe: !!config.stripe.secret && s.stripe_enabled === '1' });
 });
 
 r.get('/pages', (_req, res) => res.json({ pages: q.all("SELECT slug,title,category,updated_at FROM pages WHERE published=1 ORDER BY category, title") }));
@@ -137,9 +137,9 @@ const contactLimiter = rateLimit({ windowMs: 3600_000, limit: 6, standardHeaders
 r.post('/contact', contactLimiter, wrap(async (req, res) => {
   const b = req.body || {};
   if (b.website) return res.json({ ok: true }); // honeypot
-  if (getSetting('captcha_on_contact') === '1' && !(await captcha.check(req))) return res.status(400).json({ error: 'Human check failed. Please try the new code.', captcha: true });
   const m = { name: clean(b.name, 80), email: clean(b.email, 254).toLowerCase(), phone: clean(b.phone, 30), subject: clean(b.subject, 120) || 'General enquiry', message: clean(b.message, 4000) };
   if (m.name.length < 2 || !isEmail(m.email) || m.message.length < 10) return res.status(400).json({ error: 'Please fill in your name, a valid email and a message of at least 10 characters.' });
+  if (getSetting('captcha_on_contact') === '1' && !(await captcha.check(req))) { audit(null, 'captcha_failed', `/contact (${req.captchaReason})`, ip(req)); return res.status(400).json({ error: captcha.message(req), captcha: true }); }
   q.run('INSERT INTO contact_messages(name,email,phone,subject,message,created_at) VALUES(?,?,?,?,?,?)', m.name, m.email, m.phone, m.subject, m.message, now());
   mailer.queue({ to: m.email, kind: 'contact', ...mailer.T.contactReceipt(m) });
   mailer.queue({ to: getSetting('contact_email'), kind: 'admin', ...mailer.T.adminAlert(`New enquiry: ${m.subject}`, [`From ${m.name} <${m.email}> ${m.phone}`, m.message], `${config.siteUrl}/admin/inbox`) });

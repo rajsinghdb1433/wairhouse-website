@@ -116,7 +116,11 @@ function cookieBanner() {
   try { if (localStorage.getItem('wh_cookie')) return; } catch (_) { /* private mode */ }
   const d = document.createElement('div'); d.className = 'cookie'; d.setAttribute('role', 'dialog'); d.setAttribute('aria-label', 'Cookie notice');
   d.innerHTML = `<p><b style="color:#fff">We keep it simple.</b> We use only the essential cookies that keep you signed in and your forms safe. No ads, no cross-site tracking. <a class="link" href="/legal/cookies" data-link>Cookie policy</a></p><button class="btn btn-p btn-sm" id="ck">Got it</button>`;
-  document.body.appendChild(d); $('#ck', d).onclick = () => { try { localStorage.setItem('wh_cookie', '1'); } catch (_) { /* ignore */ } d.remove(); };
+  document.body.appendChild(d);
+  // While the card is showing, leave room for it under the page so the last button or link can always be scrolled clear of it.
+  const room = () => { document.body.style.paddingBottom = `${d.offsetHeight + 28}px`; };
+  let ro = null; room(); try { ro = new ResizeObserver(room); ro.observe(d); } catch (_) { /* very old browsers: the card simply overlaps */ }
+  $('#ck', d).onclick = () => { try { localStorage.setItem('wh_cookie', '1'); } catch (_) { /* ignore */ } ro?.disconnect(); document.body.style.paddingBottom = ''; d.remove(); };
 }
 
 (async function boot() {

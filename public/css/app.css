@@ -68,8 +68,17 @@ h1,h2,h3,h4{font-family:var(--f-d);line-height:1.04;letter-spacing:-.035em;font-
 .err{background:rgba(255,93,108,.12);border:1px solid rgba(255,93,108,.4);color:#ffb0b8;padding:12px 16px;border-radius:12px;margin-bottom:14px;font-size:15px}
 .okmsg{background:rgba(61,220,151,.12);border:1px solid rgba(61,220,151,.4);color:#a6f1cf;padding:12px 16px;border-radius:12px;margin-bottom:14px}
 .hp{position:absolute;left:-9999px;width:1px;height:1px;opacity:0}
-.captcha{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;margin-bottom:16px}.captcha svg{border-radius:10px;border:1px solid var(--line2)}.captcha button{width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.08)}
-.captcha input{text-transform:uppercase;letter-spacing:.2em;font-family:var(--f-m)}
+.captcha{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;margin-bottom:8px}
+.captcha svg{display:block;max-width:100%;height:auto;border-radius:12px;border:1px solid var(--line2)}
+.captcha input{width:100%;min-width:0;padding:14px 16px;background:rgba(255,255,255,.06);border:1px solid var(--line2);border-radius:14px;color:#fff;caret-color:var(--accent);font-family:var(--f-m);font-size:20px;letter-spacing:.3em;text-transform:uppercase;appearance:none;-webkit-appearance:none;transition:border-color .2s,background .2s,box-shadow .2s}
+.captcha input::placeholder{color:var(--dim);font-size:13px;letter-spacing:0;text-transform:none;font-family:var(--f-b)}
+.captcha input:focus{outline:0;border-color:var(--air);background:rgba(154,219,255,.07);box-shadow:0 0 0 4px rgba(154,219,255,.12)}
+.captcha button{width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.1);color:#fff;font-size:20px;transition:background .25s}.captcha button:hover{background:rgba(255,255,255,.2)}
+.captcha-hint{font-size:13px;color:var(--dim);margin:0 0 16px}
+@media (max-width:480px){.captcha{grid-template-columns:minmax(0,1fr) auto}.captcha .svg{grid-column:1/-1}}
+/* browsers paint autofilled fields pale; keep them readable on the dark theme */
+input:-webkit-autofill,input:-webkit-autofill:hover,input:-webkit-autofill:focus,textarea:-webkit-autofill,select:-webkit-autofill{-webkit-text-fill-color:#fff;caret-color:#fff;-webkit-box-shadow:0 0 0 40px #141d33 inset;transition:background-color 9999s ease-out 0s}
+.sec.light input:-webkit-autofill{-webkit-text-fill-color:#0a0f1a;-webkit-box-shadow:0 0 0 40px #fff inset}
 
 /* ---------- sections ---------- */
 main{min-height:100vh;animation:pagein .6s var(--ease) both}
@@ -277,7 +286,7 @@ input[type=range]{accent-color:var(--accent)}
   .feat{grid-template-columns:1fr}.row,.row3{grid-template-columns:1fr}.ftr .cols{grid-template-columns:1fr}.step{grid-template-columns:56px 1fr}.step:before{width:56px;height:56px;font-size:24px}
   .sticky-sec{height:auto}.sticky-sec .pin-in{position:relative;height:auto;padding:80px 0}.hdr-actions .btn-g{display:none}
 }
-@media (max-width:560px){.g4{grid-template-columns:1fr}body{font-size:16px}.cookie{left:12px;right:12px;bottom:12px}}
+@media (max-width:560px){.g4{grid-template-columns:1fr}body{font-size:16px}.cookie{left:12px;right:12px;bottom:12px;padding:14px 16px;border-radius:18px}.cookie p{font-size:13px;margin-bottom:10px}}
 @media print{.hdr,.ftr,.side,.cookie,.toasts{display:none!important}body{background:#fff;color:#000}}
 /* fixes */
 .row,.row3{align-items:start}.row>*,.row3>*{min-width:0}.field input[type=date]{min-width:0}

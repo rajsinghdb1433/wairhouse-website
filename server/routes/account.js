@@ -76,7 +76,7 @@ r.get('/bookings', (req, res) => {
 r.post('/bookings', wrap(async (req, res) => {
   const b = req.body || {};
   if (req.user.role === 'admin') return res.status(403).json({ error: 'Use a customer account to book.' });
-  if (getSetting('captcha_on_booking') === '1' && !(await captcha.check(req))) return res.status(400).json({ error: 'Human check failed.', captcha: true });
+  if (getSetting('captcha_on_booking') === '1' && !(await captcha.check(req))) return res.status(400).json({ error: captcha.message(req), captcha: true });
   if (mailer.configured() && !req.user.email_verified) return res.status(403).json({ error: 'Please confirm your email first. Check your inbox for our link.' });
   const l = q.get("SELECT * FROM listings WHERE id = ? AND status = 'active'", int(b.listing_id));
   if (!l) return res.status(404).json({ error: 'That space is no longer available.' });

@@ -110,11 +110,11 @@ export const confirmBox = (title, text, yes = 'Confirm') => new Promise((res) =>
 export async function captchaHtml(id = 'cap') {
   let c; try { c = await api('/auth/captcha'); } catch (_) { return raw(''); }
   if (c.mode === 'turnstile') return raw(`<div class="cf-turnstile" data-sitekey="${esc(c.siteKey)}" id="${id}"></div>`);
-  return raw(`<div class="captcha" id="${id}" data-token="${esc(c.token)}"><div class="svg">${c.svg}</div><input name="captcha_answer" autocomplete="off" inputmode="text" maxlength="8" placeholder="Type the letters" aria-label="Type the letters you see" required><button type="button" data-refresh aria-label="New code">↻</button></div>`);
+  return raw(`<div class="captcha" id="${id}" data-token="${esc(c.token)}"><div class="svg">${c.svg}</div><input name="captcha_answer" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" inputmode="text" maxlength="5" placeholder="Type the 5 letters" aria-label="Type the 5 letters shown in the picture" required><button type="button" data-refresh aria-label="Show a new picture" title="Show a new picture">↻</button></div><p class="captcha-hint">Type the 5 letters you see. Capitals or small letters both work.</p>`);
 }
 export function captchaMount(root) {
   const box = root.querySelector('.captcha'); if (!box) { const t = root.querySelector('.cf-turnstile'); if (t && !window.turnstile) { const s = document.createElement('script'); s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js'; s.async = true; document.head.appendChild(s); } return; }
-  box.querySelector('[data-refresh]').onclick = async () => { const c = await api('/auth/captcha'); box.dataset.token = c.token; box.querySelector('.svg').innerHTML = c.svg; box.querySelector('input').value = ''; };
+  box.querySelector('[data-refresh]').onclick = async () => { try { const c = await api('/auth/captcha'); box.dataset.token = c.token; box.querySelector('.svg').innerHTML = c.svg; box.querySelector('input').value = ''; } catch (_) { /* offline: keep the current picture */ } };
 }
 export const captchaValues = (root) => { const b = root.querySelector('.captcha'); if (b) return { captcha_token: b.dataset.token, captcha_answer: b.querySelector('input').value }; const t = root.querySelector('[name="cf-turnstile-response"]'); return t ? { captcha_token: t.value } : {}; };
 export async function captchaRefresh(root) { root.querySelector('[data-refresh]')?.click(); window.turnstile?.reset(); }
@@ -126,7 +126,8 @@ export async function submitForm(form, fn, { btn } = {}) {
   const old = b?.textContent; if (b) { b.disabled = true; b.textContent = 'One moment…'; } if (errBox) errBox.innerHTML = '';
   try { return await fn(); } catch (e) {
     if (errBox) errBox.innerHTML = `<div class="err" role="alert">${esc(e.message)}</div>`; else toast(e.message, 'bad');
-    if (e.data?.captcha) captchaRefresh(form); return null;
+    // A human-check answer is single use, so show a fresh picture after any failed attempt, not only after a wrong answer.
+    if (form.querySelector('.captcha, .cf-turnstile')) captchaRefresh(form); return null;
   } finally { if (b) { b.disabled = false; b.textContent = old; } }
 }
 

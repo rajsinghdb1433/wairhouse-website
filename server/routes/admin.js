@@ -2,8 +2,8 @@
 const express = require('express');
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
-const { q, db, now, audit, allSettings, setSetting, DEFAULT_SETTINGS } = require('../db');
-const { clean, int, isEmail, randomToken, wrap, ip, passwordProblem, cents } = require('../util');
+const { q, db, now, audit, allSettings, setSetting, setSecret, delSecret, DEFAULT_SETTINGS } = require('../db');
+const { clean, int, isEmail, randomToken, wrap, ip, passwordProblem, cents, encrypt } = require('../util');
 const { requireRole } = require('../auth');
 const { shapeListing, refreshRating } = require('./public');
 const mailer = require('../mailer');
@@ -108,7 +108,7 @@ r.get('/inbox', (_req, res) => res.json({ messages: q.all('SELECT * FROM contact
 r.patch('/inbox/:id', (req, res) => { q.run('UPDATE contact_messages SET status = ? WHERE id = ?', req.body.status === 'done' ? 'done' : 'new', int(req.params.id)); res.json({ ok: true }); });
 
 // ---------- site settings (everything on the public site is driven from here) ----------
-r.get('/settings', (_req, res) => res.json({ settings: allSettings(), smtp: { configured: mailer.configured(), host: config.mail.host, from: config.mail.from, reply_to: config.mail.replyTo }, captcha: config.captcha.turnstileSecret ? 'turnstile' : 'builtin', stripe: !!config.stripe.secret }));
+r.get('/settings', (_req, res) => res.json({ settings: allSettings(), smtp: mailSummary(), captcha: config.captcha.turnstileSecret ? 'turnstile' : 'builtin', stripe: !!config.stripe.secret }));
 r.put('/settings', (req, res) => {
   const b = req.body || {}; let n = 0;
   for (const k of Object.keys(DEFAULT_SETTINGS)) {
@@ -191,18 +191,57 @@ r.post('/prospects/send', wrap(async (req, res) => {
     const m = mailer.T.ownerInvite(p, inviteUrl(p));
     const out = await mailer.send({ to: p.email, kind: 'outreach', marketing: true, ...m });
     if (out.ok) q.run("UPDATE prospects SET status = CASE WHEN status IN ('new') THEN 'invited' ELSE status END, last_contacted_at = ?, contact_count = contact_count + 1 WHERE id = ?", now(), id);
-    results.push({ id, ok: out.ok, error: out.ok ? '' : (out.error === 'smtp_not_configured' ? 'Saved to outbox: add SMTP details to send' : out.error) });
+    results.push({ id, ok: out.ok, error: out.ok ? '' : (out.error === 'smtp_not_configured' ? 'Saved to the outbox. Connect your email in Admin > Email to send' : out.error) });
     if (ids.length > 1) await new Promise((r2) => setTimeout(r2, 1200)); // gentle pacing protects sender reputation
   }
   audit(req.user.id, 'outreach_sent', `${results.filter((x) => x.ok).length}/${ids.length}`, ip(req)); res.json({ results });
 }));
 
 // ---------- email ----------
-r.get('/outbox', (_req, res) => res.json({ emails: q.all('SELECT id,kind,to_email,subject,status,error,created_at,sent_at FROM email_outbox ORDER BY id DESC LIMIT 200'), smtp: mailer.configured() }));
+// Safe description of the active mail account. The password is never included.
+function mailSummary() {
+  const c = mailer.mailConfig(); const on = mailer.configured();
+  return { configured: on, source: on ? c.source : 'none', host: c.host, port: c.port, secure: c.secure, user: c.user ? c.user : '', from: c.from, from_name: c.fromName, reply_to: c.replyTo, has_password: !!c.pass };
+}
+const PRESETS = [
+  { id: 'hostinger', label: 'Hostinger Email (recommended)', host: 'smtp.hostinger.com', port: 465, secure: true, help: 'Create a mailbox in hPanel > Emails, then use its full address and password.' },
+  { id: 'google', label: 'Google Workspace / Gmail', host: 'smtp.gmail.com', port: 465, secure: true, help: 'Use an app password (Google account > Security > App passwords).' },
+  { id: 'microsoft365', label: 'Microsoft 365 (business)', host: 'smtp.office365.com', port: 587, secure: false, help: 'Business tenants only. Personal Hotmail and Outlook.com accounts no longer allow this.' },
+  { id: 'brevo', label: 'Brevo (free tier)', host: 'smtp-relay.brevo.com', port: 587, secure: false, help: 'Use your Brevo login email and an SMTP key.' },
+  { id: 'custom', label: 'Other provider', host: '', port: 587, secure: false, help: 'Enter the details from your email provider.' },
+];
+// A real domain name only: letters/digits/dots, ending in a letters-first label (so numeric and hex tricks such as 0x7f.1 or
+// 203.0.113.5 are refused), and in production never an internal or loopback name, so this form cannot be used to probe the server's own network.
+const hostOk = (h) => /^[a-z0-9]([a-z0-9.-]{0,98}[a-z0-9])?$/i.test(h) && /\.[a-z][a-z0-9-]*$/i.test(h)
+  && !(config.isProd && (/^(localhost|127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|0\.)/i.test(h) || /\.(localhost|local|internal|lan|home|corp|intranet)$/i.test(h)));
+r.get('/email-settings', (_req, res) => res.json({ account: mailSummary(), presets: PRESETS, unsent: q.get("SELECT COUNT(*) c FROM email_outbox WHERE status IN ('not_sent','failed')").c }));
+r.put('/email-settings', wrap(async (req, res) => {
+  const b = req.body || {}; const cur = mailer.mailConfig();
+  const host = clean(b.host, 100).toLowerCase(); const user = clean(b.user, 160); const port = int(b.port, 0, 1, 65535);
+  const from = clean(b.from, 254) || user; const replyTo = clean(b.reply_to, 254) || from;
+  if (!hostOk(host)) return res.status(400).json({ error: 'Enter the mail server name, for example smtp.hostinger.com.' });
+  if (!port) return res.status(400).json({ error: 'Enter the port (465 or 587).' });
+  if (!user) return res.status(400).json({ error: 'Enter the mailbox username (usually the full email address).' });
+  if (!isEmail(from) || !isEmail(replyTo)) return res.status(400).json({ error: 'The From and Reply-to addresses must be valid email addresses.' });
+  // The saved password is kept only when the server and username are unchanged. Pointing the same username at a different server
+  // must be confirmed by typing the password again, so a stolen session cannot redirect the stored password elsewhere.
+  const same = cur.source === 'admin' && cur.user === user && cur.host === host && Number(cur.port) === port;
+  const pass = typeof b.pass === 'string' && b.pass ? b.pass : (same ? cur.pass : '');
+  if (!pass) return res.status(400).json({ error: 'Enter the mailbox password.' });
+  if (pass.length > 200) return res.status(400).json({ error: 'That password is too long.' });
+  setSecret('smtp_config', JSON.stringify({ host, port, secure: b.secure === true || b.secure === 'true', user, from, from_name: clean(b.from_name, 80) || 'wAIRhouse', reply_to: replyTo, pass_enc: encrypt(pass) }));
+  mailer.resetTransport(); audit(req.user.id, 'email_connected', `${user} via ${host}:${port}`, ip(req));
+  const test = await mailer.verifyConnection(); // saved either way; tell the admin if the server said no
+  res.json({ ok: true, verified: test.ok, error: test.ok ? '' : test.error, account: mailSummary() });
+}));
+r.delete('/email-settings', (req, res) => { delSecret('smtp_config'); mailer.resetTransport(); audit(req.user.id, 'email_disconnected', '', ip(req)); res.json({ ok: true, account: mailSummary() }); });
+
+r.get('/outbox', (_req, res) => res.json({ emails: q.all('SELECT id,kind,to_email,subject,status,error,created_at,sent_at FROM email_outbox ORDER BY id DESC LIMIT 200'), smtp: mailer.configured(), unsent: q.get("SELECT COUNT(*) c FROM email_outbox WHERE status IN ('not_sent','failed')").c }));
 r.get('/outbox/:id', (req, res) => { const e = q.get('SELECT * FROM email_outbox WHERE id = ?', int(req.params.id)); e ? res.json({ email: e }) : res.status(404).json({ error: 'Not found.' }); });
+r.post('/outbox/retry-unsent', wrap(async (req, res) => { const out = await mailer.retryUnsent(50); audit(req.user.id, 'email_retry_unsent', `${out.sent}/${out.tried}`, ip(req)); res.json(out); }));
 r.post('/outbox/:id/retry', wrap(async (req, res) => {
-  const e = q.get('SELECT * FROM email_outbox WHERE id = ?', int(req.params.id)); if (!e) return res.status(404).json({ error: 'Not found.' });
-  const out = await mailer.send({ to: e.to_email, subject: e.subject, html: e.html, text: e.text, kind: e.kind }); res.json(out);
+  const e = q.get('SELECT id FROM email_outbox WHERE id = ?', int(req.params.id)); if (!e) return res.status(404).json({ error: 'Not found.' });
+  res.json(await mailer.deliver(e.id));
 }));
 r.post('/email/test', wrap(async (req, res) => {
   const to = isEmail(req.body?.to) ? req.body.to : req.user.email;

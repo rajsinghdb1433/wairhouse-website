@@ -35,12 +35,16 @@ function jar() { const c = {}; return { csrf: '', async req(m, p, body, { raw, h
     r = await adm.req('PUT', '/api/admin/settings', { tagline: 'x' }, { headers: { Origin: 'https://evil.example' } }); ok(r.s === 403, 'cross-site Origin is blocked');
     const owner = jar(); r = await owner.req('POST', '/api/auth/register', { name: 'Olive Owner', email: 'olive@example.com', password: 'short', role: 'owner', accept_terms: true }); ok(r.s === 400, 'weak password rejected');
     r = await owner.req('POST', '/api/auth/register', { name: 'Olive Owner', email: 'olive@example.com', password: 'correct horse battery', role: 'owner', company: 'Olive Storage', accept_terms: true }); ok(r.s === 200, 'owner registers'); owner.csrf = r.j.csrf;
+    ok(r.j.mail === false, 'sign-up works with no mailbox connected and tells the page that email is off');
     r = await owner.req('GET', '/api/admin/stats'); ok(r.s === 403, 'owner cannot reach admin API');
     const cust = jar(); r = await cust.req('POST', '/api/auth/register', { name: 'Cam Customer', email: 'cam@example.com', password: 'another long passphrase', role: 'customer', accept_terms: true, website: '' }); ok(r.s === 200, 'customer registers'); cust.csrf = r.j.csrf;
     r = await cust.req('POST', '/api/owner/listings', { title: 'x' }); ok(r.s === 403, 'customer cannot create listings');
     const bot = jar(); r = await bot.req('POST', '/api/auth/register', { name: 'Bot', email: 'bot@example.com', password: 'another long passphrase', accept_terms: true, website: 'http://spam' }); ok(r.s === 200 && !r.j.user, 'honeypot silently swallows bots');
     for (let i = 0; i < 7; i++) r = await jar().req('POST', '/api/auth/login', { email: 'cam@example.com', password: 'bad' + i }); r = await jar().req('POST', '/api/auth/login', { email: 'cam@example.com', password: 'another long passphrase' }); ok(r.s === 429, 'account locks after repeated failures');
-    const db2 = new (require('node:sqlite').DatabaseSync)(env.DB_FILE); db2.prepare('UPDATE users SET failed_logins=0, locked_until=0').run(); db2.close();
+    const db2 = new (require('node:sqlite').DatabaseSync)(env.DB_FILE); db2.prepare('UPDATE users SET failed_logins=0, locked_until=0').run();
+    const waiting = db2.prepare("SELECT status FROM email_outbox WHERE to_email = 'olive@example.com'").all();
+    ok(waiting.length === 1 && waiting[0].status === 'not_sent', 'with no mailbox, the one welcome email waits in the outbox (not lost, not duplicated)');
+    db2.close();
 
     console.log('Marketplace flow');
     const bodyL = { title: '<script>alert(1)</script> Test Bay', type: 'warehouse', unit: 'pallet', period: 'week', price: 5, capacity: 50, suburb: 'Moorebank', state: 'NSW', postcode: '2170', min_days: 7, features: ['CCTV 24/7'], description: 'A very clean and secure test warehouse bay with forklift access.', instant_book: false };

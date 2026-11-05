@@ -23,8 +23,13 @@ const needCaptcha = (key) => getSetting(key) === '1';
 r.get('/captcha', (req, res) => {
   res.set('Cache-Control', 'no-store');
   if (captcha.turnstileSite) return res.json({ mode: 'turnstile', siteKey: captcha.turnstileSite });
-  res.json({ mode: 'builtin', ...captcha.create() });
+  const { token, svg, answer } = captcha.create();
+  // Automated tests need the answer. This only exists when NODE_ENV is "test" AND the test flag is set, never in production.
+  if (process.env.NODE_ENV === 'test' && process.env.CAPTCHA_TEST_HEADER === '1') res.set('X-Captcha-Answer', answer);
+  res.json({ mode: 'builtin', token, svg });
 });
+// Specific, friendly message plus a note in the security log so a pattern of failures can be spotted.
+const captchaFail = (req, res) => { audit(null, 'captcha_failed', `${req.path} (${req.captchaReason})`, ip(req)); return res.status(400).json({ error: captcha.message(req), captcha: true }); };
 
 function makeToken(userId, kind, ttlMs) {
   q.run('DELETE FROM tokens WHERE user_id = ? AND kind = ?', userId, kind);
@@ -44,12 +49,13 @@ r.post('/register', registerLimiter, wrap(async (req, res) => {
   if (getSetting('registration_open') !== '1') return res.status(403).json({ error: 'Sign-ups are paused right now.' });
   const role = b.role === 'owner' ? 'owner' : 'customer';
   if (role === 'owner' && getSetting('owner_registration_open') !== '1') return res.status(403).json({ error: 'Owner sign-ups are paused right now.' });
-  if (needCaptcha('captcha_on_register') && !(await captcha.check(req))) return res.status(400).json({ error: 'Human check failed. Please try the new code.', captcha: true });
   const email = clean(b.email, 254).toLowerCase(); const name = clean(b.name, 80);
+  // Cheap form checks come first so a typo never uses up a correct human-check answer.
   if (!isEmail(email)) return res.status(400).json({ error: 'Enter a valid email address.' });
   if (name.length < 2) return res.status(400).json({ error: 'Enter your name.' });
   const pwProblem = passwordProblem(b.password, email); if (pwProblem) return res.status(400).json({ error: pwProblem });
   if (!b.accept_terms) return res.status(400).json({ error: 'Please accept the Terms and Privacy Policy.' });
+  if (needCaptcha('captcha_on_register') && !(await captcha.check(req))) return captchaFail(req, res);
   if (q.get('SELECT 1 FROM users WHERE email = ?', email)) return res.status(409).json({ error: 'An account with that email already exists. Try signing in.' });
   const hash = await bcrypt.hash(b.password, 12);
   const info = q.run('INSERT INTO users(email,name,phone,company,password_hash,role,marketing_opt_in,created_at) VALUES(?,?,?,?,?,?,?,?)',
@@ -65,18 +71,18 @@ r.post('/register', registerLimiter, wrap(async (req, res) => {
     if (pr) q.run("UPDATE prospects SET status='signed_up' WHERE id = ? AND status IN ('new','contacted','replied','invited')", pr.id);
   }
   const user = q.get('SELECT * FROM users WHERE id = ?', uid);
-  mailer.queue({ to: email, kind: 'welcome', ...mailer.T.welcome(user) });
-  mailer.queue({ to: email, kind: 'verify', ...mailer.T.verify(user, makeToken(uid, 'verify', 24 * 3600_000)) });
+  // One friendly email: welcome plus the confirm-your-address button.
+  mailer.queue({ to: email, kind: 'welcome', ...mailer.T.welcome(user, makeToken(uid, 'verify', 24 * 3600_000)) });
   mailer.queue({ to: getSetting('contact_email'), kind: 'admin', ...mailer.T.adminAlert(`New ${role} sign-up`, [`${name} (${email}) just joined as ${role}.`], `${config.siteUrl}/admin/users`) });
   audit(uid, 'register', role, ip(req));
   const csrf = createSession(req, res, user);
-  res.json({ ok: true, user: publicUser(user), csrf });
+  res.json({ ok: true, user: publicUser(user), csrf, mail: mailer.configured() });
 }));
 
 r.post('/login', loginLimiter, wrap(async (req, res) => {
   const b = req.body || {};
   const email = clean(b.email, 254).toLowerCase();
-  if (needCaptcha('captcha_on_login') && !(await captcha.check(req))) return res.status(400).json({ error: 'Human check failed. Please try the new code.', captcha: true });
+  if (needCaptcha('captcha_on_login') && !(await captcha.check(req))) return captchaFail(req, res);
   const u = q.get('SELECT * FROM users WHERE email = ?', email);
   if (u && u.locked_until > now()) return res.status(429).json({ error: 'This account is temporarily locked after too many attempts. Try again in 15 minutes or reset your password.' });
   const ok = await bcrypt.compare(String(b.password || ''), u ? u.password_hash : DUMMY);
@@ -109,7 +115,7 @@ r.get('/me', (req, res) => {
 });
 
 r.post('/forgot', resetLimiter, wrap(async (req, res) => {
-  if (!(await captcha.check(req))) return res.status(400).json({ error: 'Human check failed. Please try the new code.', captcha: true });
+  if (!(await captcha.check(req))) return captchaFail(req, res);
   const u = q.get('SELECT * FROM users WHERE email = ?', clean(req.body?.email, 254).toLowerCase());
   if (u && u.status === 'active') mailer.queue({ to: u.email, kind: 'reset', ...mailer.T.reset(u, makeToken(u.id, 'reset', 3600_000)) });
   res.json({ ok: true, message: 'If that email has an account, a reset link is on its way.' }); // same answer either way

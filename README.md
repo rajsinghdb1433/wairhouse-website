@@ -21,14 +21,14 @@ On first start an admin account is created for `raj_softdev@hotmail.com` with a 
 | **Owner portal** `/owner` | Overview and earnings charts, add/edit spaces (photos, map pin, features, pricing, Instant Book), booking requests (accept, decline, mark started/complete), messages, payouts (encrypted). |
 | **Admin panel** `/admin` | Dashboard with go-live checklist, listing approvals, bookings and payments, users and roles, **owner outreach** (add or import warehouse owners, branded invite emails, tracking, unsubscribe handling), inbox, **legal and page editor**, FAQ editor, **site settings that control the whole site** (contact details, fees, homepage copy, switches, captcha toggles), email outbox, security log. |
 | **Backend** | Express 5 + SQLite (`node:sqlite`, zero native database dependencies), REST API, signed sessions, TOTP 2FA, captcha, CSRF, rate limits, upload re-encoding, Stripe Checkout (optional), nodemailer. |
-| **Email** | Branded HTML emails with logo, signature (Raj Singh, 0470368696) and unsubscribe, plus plain-text versions. Sent from and replying to `raj_softdev@hotmail.com` until you add a business mailbox. |
+| **Email** | Branded HTML emails with logo, signature (Raj Singh, 0470368696) and unsubscribe, plus plain-text versions. The sending mailbox is connected in **Admin > Email** (password stored encrypted); replies go to `raj_softdev@hotmail.com`. Personal Hotmail cannot send through SMTP any more, so use a mailbox on your own domain. Nothing is lost while email is off: messages wait in the outbox. |
 | **Media** | All photos and the hero video are rendered from the site's own 3D scenes (`node scripts/render-media.js`). |
 
 Your details (name, phone, email, ABN, address) live in **Admin > Site settings** and flow into the header, footer, emails and every legal page automatically.
 
 ## Documents
 
-- [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md): Hostinger and VPS steps, environment variables, Hotmail app-password email, backups.
+- [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md): Hostinger and VPS steps, environment variables, connecting the email mailbox (Admin > Email), backups.
 - [`docs/SECURITY.md`](docs/SECURITY.md): every protection built in, a pre-launch checklist, and the honest limits.
 - [`docs/PRICING-RESEARCH.md`](docs/PRICING-RESEARCH.md): Australian market pricing, what Airbnb charges, recommended wAIRhouse fees, and customer benefits.
 

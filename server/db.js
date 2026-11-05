@@ -132,6 +132,8 @@ CREATE TABLE IF NOT EXISTS messages (
 );
 CREATE INDEX IF NOT EXISTS idx_messages_thread ON messages(listing_id, customer_id);
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+-- Secrets (for example the mail account password) live apart from settings so they can never be returned by a settings API.
+CREATE TABLE IF NOT EXISTS secrets (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS pages (
   slug TEXT PRIMARY KEY, title TEXT NOT NULL, body TEXT NOT NULL,
   category TEXT NOT NULL DEFAULT 'legal', version INTEGER NOT NULL DEFAULT 1,
@@ -277,4 +279,8 @@ function audit(userId, action, detail = '', ip = '') {
   try { q.run('INSERT INTO audit_log(user_id,action,detail,ip,created_at) VALUES(?,?,?,?,?)', userId || null, action, String(detail).slice(0, 500), ip, now()); } catch (_) { /* never break a request for logging */ }
 }
 
-module.exports = { db, q, tx, now, DEFAULT_SETTINGS, PUBLIC_KEYS, getSetting, allSettings, setSetting, audit };
+const getSecret = (k) => { const r = q.get('SELECT value FROM secrets WHERE key = ?', k); return r ? r.value : ''; };
+const setSecret = (k, v) => q.run('INSERT INTO secrets(key,value,updated_at) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at', k, String(v), now());
+const delSecret = (k) => q.run('DELETE FROM secrets WHERE key = ?', k);
+
+module.exports = { db, q, tx, now, DEFAULT_SETTINGS, PUBLIC_KEYS, getSetting, allSettings, setSetting, getSecret, setSecret, delSecret, audit };

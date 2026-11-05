@@ -12,7 +12,8 @@ try {
       const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/i);
       if (!m || line.trim().startsWith('#')) continue;
       let v = m[2];
-      if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) v = v.slice(1, -1);
+      if ((v.startsWith('"') && v.endsWith('"') && v.length > 1) || (v.startsWith("'") && v.endsWith("'") && v.length > 1)) v = v.slice(1, -1); // quoted: kept exactly
+      else v = v.replace(/(^|\s+)#.*$/, '').trim(); // unquoted: a trailing " # note" is a comment, so .env.example can be copied as it is
       if (process.env[m[1]] === undefined) process.env[m[1]] = v;
     }
   }
@@ -51,9 +52,9 @@ module.exports = {
   },
   seedDemo: process.env.SEED_DEMO !== 'false',
   mail: {
-    host: process.env.SMTP_HOST || 'smtp-mail.outlook.com',
-    port: Number(process.env.SMTP_PORT) || 587,
-    secure: process.env.SMTP_SECURE === 'true',
+    host: process.env.SMTP_HOST || 'smtp.hostinger.com',
+    port: Number(process.env.SMTP_PORT) || 465,
+    secure: process.env.SMTP_SECURE ? process.env.SMTP_SECURE === 'true' : true,
     user: process.env.SMTP_USER || '',
     pass: process.env.SMTP_PASS || '',
     from: process.env.MAIL_FROM || process.env.SMTP_USER || 'raj_softdev@hotmail.com',
