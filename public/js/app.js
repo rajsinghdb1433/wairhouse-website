@@ -16,6 +16,14 @@ R(/^\/account(\/[\w-]*)?$/, () => import('./pages/account.js'), { layout: 'porta
 R(/^\/owner(\/[\w-]*)*$/, () => import('./pages/owner.js'), { layout: 'portal', roles: ['owner', 'admin'] });
 R(/^\/admin(\/[\w-]*)?$/, () => import('./pages/admin.js'), { layout: 'portal', roles: ['admin'] });
 
+// Background videos only play while on screen, and not at all for people who prefer reduced motion (they see the poster).
+let vio = null;
+function playVisibleVideos(root) {
+  const vids = $$('video[data-bg]', root); if (!vids.length) return;
+  if (reduceMotion() || !('IntersectionObserver' in window)) return;
+  vio?.disconnect(); vio = new IntersectionObserver((es) => es.forEach((e) => { const v = e.target; if (e.isIntersecting) { v.play().catch(() => {}); } else v.pause(); }), { threshold: 0.25 });
+  vids.forEach((v) => vio.observe(v));
+}
 const app = $('#app'); let cleanup = []; let current = null;
 export const ctx = { onLeave: (fn) => cleanup.push(fn), navigate, main: null };
 
@@ -56,7 +64,7 @@ function footerHtml() {
 
 function setActiveHeader(layout) {
   const h = $('#hdr'); if (!h) return;
-  const ann = document.getElementById('ann'); const aH = ann ? ann.offsetHeight : 0; const upd = () => { h.classList.toggle('solid', scrollY > 24 || layout === 'portal' || layout === 'search' || layout === 'page'); h.style.top = Math.max(0, aH - scrollY) + 'px'; };
+  const ann = document.getElementById('ann'); const aH = ann ? ann.offsetHeight : 0; const upd = () => { h.classList.toggle('solid', scrollY > 24 || layout === 'portal' || layout === 'search' || layout === 'page' || layout === 'auth'); h.style.top = Math.max(0, aH - scrollY) + 'px'; };
   upd(); removeEventListener('scroll', window.__hs); window.__hs = upd; addEventListener('scroll', upd, { passive: true });
 }
 
@@ -78,7 +86,7 @@ async function render() {
     if (!hit) { const info = await import('./pages/info.js'); await info.notFound({ main, ...ctx, path, query }); }
     else { const mod = await hit[1](); await mod.default({ main, ...ctx, params: m.slice(1), path, query, layout }); }
   } catch (e) { console.error(e); main.innerHTML = `<div class="wrap" style="padding:200px 0;text-align:center"><h1 class="h-lg">Something broke.</h1><p class="lede" style="margin:18px auto">${esc(e.message)}</p><a class="btn btn-p" href="/" data-link>Back home</a></div>`; }
-  splitWords(main); reveal(main); tilt(main); magnetic(main); wireWishes(main);
+  splitWords(main); reveal(main); tilt(main); magnetic(main); wireWishes(main); playVisibleVideos(main);
   if (!location.hash) scrollTo(0, 0); else setTimeout(() => $(location.hash)?.scrollIntoView({ behavior: reduceMotion() ? 'auto' : 'smooth' }), 80);
   document.title = document.title || 'wAIRhouse';
   current = path;

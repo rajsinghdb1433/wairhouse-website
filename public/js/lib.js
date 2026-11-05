@@ -35,6 +35,8 @@ export const typeImage = (t, sm = false) => `${TYPE_IMG[t] || '/img/photos/inven
 // Admin-managed pictures and videos. Each named slot on the site resolves to the admin's pick, or a built-in default.
 export const slot = (name) => state.site?.media?.[name] || null;
 export const slotImg = (name, cls = '') => { const m = slot(name); return m && m.kind === 'image' ? html`<img class="${cls}" src="${m.url}" alt="${m.alt}" loading="lazy" decoding="async">` : ''; };
+// Renders a photo or a video depending on what the admin chose. Videos are muted, looping and only play while on screen (see app.js).
+export const slotMedia = (name, cls = '') => { const m = slot(name); if (!m) return ''; return m.kind === 'video' ? html`<video class="${cls}" data-bg src="${m.url}" poster="${m.poster || ''}" muted loop playsinline preload="metadata" aria-label="${m.alt}"></video>` : html`<img class="${cls}" src="${m.url}" alt="${m.alt}" loading="lazy" decoding="async">`; };
 export const slotUrl = (name) => { const m = slot(name); return m ? m.url : ''; };
 // Typical earnings for one space, from published Australian platform and market figures (see docs/PRICING-RESEARCH.md).
 export const TYPE_TILES = [

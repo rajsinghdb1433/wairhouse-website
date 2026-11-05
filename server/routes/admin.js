@@ -268,7 +268,7 @@ r.delete('/media/:id', (req, res) => {
 r.put('/media-slots', (req, res) => {
   const slot = String(req.body?.slot || ''); const d = media.SLOTS[slot]; if (!d) return res.status(400).json({ error: 'Unknown placement.' });
   const id = int(req.body?.media_id, 0);
-  if (id) { const m = q.get('SELECT kind FROM media WHERE id = ?', id); if (!m || m.kind !== d.kind) return res.status(400).json({ error: `This placement needs a ${d.kind}.` }); }
+  if (id) { const m = q.get('SELECT kind FROM media WHERE id = ?', id); if (!m || (d.kind !== 'any' && m.kind !== d.kind)) return res.status(400).json({ error: `This placement needs a ${d.kind}.` }); }
   media.assign(slot, id); audit(req.user.id, 'media_slot', `${slot}=${id}`, ip(req)); res.json({ ok: true, current: media.resolveAll()[slot] });
 });
 
